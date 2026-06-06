@@ -38,3 +38,6 @@ follows [SemVer](https://semver.org/).
   `carve/aquery` module: `ParseCompileActions` decodes an
   `ActionGraphContainer` and extracts compile actions (CppCompile/ObjcCompile/
   CppModuleCompile) with path-fragment-resolved primary outputs. Unit-tested.
+- `carve/refresh` module: `BuildEntries` orchestrates aquery -> de-Bazel ->
+  source detection into `cdb::CompileCommand` entries (the Layer A pipeline,
+  minus scan-deps and execroot path resolution). Unit-tested.
