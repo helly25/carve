@@ -54,3 +54,9 @@ follows [SemVer](https://semver.org/).
 - `carve/refresh`: emit absolute `file` paths (resolved against the entry's
   `directory`/execroot) so clangd matches sources unambiguously; absolute or
   directory-less paths pass through unchanged.
+- Extract `carve/io` (atomic write + read), shared by `cdb` and `refresh`.
+- `carve/sidecar`: Edition 2024 `carve.proto` schema (ActionRecord/
+  ActionRecords/HeaderOwners/HeaderIndex) and `Load`/`Save` (binary proto,
+  atomic, missing-file => empty) plus `DiffActionKeys` partitioning stored vs.
+  current action keys into added/removed/common — the basis for incremental
+  refresh. Unit-tested.

@@ -15,6 +15,7 @@
 
 load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
 load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -27,4 +28,34 @@ cc_proto_library(
     name = "carve_cc_proto",
     visibility = ["//carve:__subpackages__"],
     deps = [":carve_proto"],
+)
+
+cc_library(
+    name = "sidecar_cc",
+    srcs = ["sidecar.cc"],
+    hdrs = ["sidecar.h"],
+    visibility = ["//carve:__subpackages__"],
+    implementation_deps = [
+        "//carve/io:io_cc",
+        "@abseil-cpp//absl/container:flat_hash_set",
+    ],
+    deps = [
+        ":carve_cc_proto",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "sidecar_test",
+    size = "small",
+    srcs = ["sidecar_test.cc"],
+    deps = [
+        ":carve_cc_proto",
+        ":sidecar_cc",
+        "@abseil-cpp//absl/status:status_matchers",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
 )
