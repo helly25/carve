@@ -13,22 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
 package(default_visibility = ["//visibility:private"])
 
-filegroup(
-    name = "clang-format",
-    srcs = [".clang-format"],
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "is_clang",
-    define_values = {"is_clang": "true"},
-)
-
-# Convenience entry point: `bazel run //:carve -- <subcommand> [flags]`.
-alias(
+cc_binary(
     name = "carve",
-    actual = "//carve:carve",
+    srcs = ["carve.cc"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//carve/cli:cli_cc",
+        "@abseil-cpp//absl/flags:parse",
+        "@abseil-cpp//absl/flags:usage",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+    ],
 )

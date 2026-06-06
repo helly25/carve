@@ -18,3 +18,11 @@ follows [SemVer](https://semver.org/).
 - Align design with helly25 house conventions: `carve/<module>/` package layout,
   `namespace carve::<module>`, `_cc`/`_test` target naming, `deps` vs
   `implementation_deps`; add RULES.md (code style) referenced from AGENTS.md.
+- `carve` binary skeleton: `//carve:carve` with `absl::Flags` subcommand
+  dispatch (`refresh`/`aggregate`/`shard`/`prune`), `carve/cli` module +
+  `cli_test`, `//:carve` run alias. Handlers return `UnimplementedError` until
+  their modules land.
+- Scope `-Werror` to first-party code via `--per_file_copt=//carve/.*`, so
+  third-party deps (re2 vs. a newer Abseil deprecation) keep their own posture.
+- Add `docs/test-plan.md` ledger for manually-verified, not-yet-codified
+  behavior (currently: the binary's exit-code mapping).

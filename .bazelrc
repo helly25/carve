@@ -27,7 +27,15 @@ common --define absl=1
 
 # C++23 by default. Carve targets clang 20.1+ and the bundled clang via
 # toolchains_llvm is the supported configuration.
-common --cxxopt=-std=c++23 --host_cxxopt=-std=c++23 --cxxopt=-Werror
+common --cxxopt=-std=c++23 --host_cxxopt=-std=c++23
+
+# Treat warnings as errors for first-party code only, scoped by a positive match
+# on our own source tree. Third-party dependencies (e.g. re2 compiled against a
+# newer Abseil that deprecated some APIs) keep their own warning posture; we do
+# not own their warnings. A positive include is more robust than excluding
+# `external/` because per-repo source paths differ across Bazel versions.
+common --per_file_copt=//carve/.*@-Werror
+common --host_per_file_copt=//carve/.*@-Werror
 
 test --test_output=errors
 
