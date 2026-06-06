@@ -26,3 +26,6 @@ follows [SemVer](https://semver.org/).
   third-party deps (re2 vs. a newer Abseil deprecation) keep their own posture.
 - Add `docs/test-plan.md` ledger for manually-verified, not-yet-codified
   behavior (currently: the binary's exit-code mapping).
+- `carve/cdb` module: `CompileCommand` model, deterministic JSON Compilation
+  Database serialization (`ToJson`), and atomic write (`WriteAtomically` /
+  `Write`) via temp-file + rename. Unit-tested incl. escaping and overwrite.
