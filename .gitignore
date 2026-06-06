@@ -11,3 +11,6 @@
 /.bazelrc.user
 /.bazelrc.user.end
 /MODULE.bazel.lock
+
+# Machine-local Claude Code state (shared config lives in .claude/settings.json).
+/.claude/settings.local.json

@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(bazel build *)",
-      "Bash(bazel aquery *)"
-    ]
-  }
-}
