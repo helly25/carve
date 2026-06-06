@@ -33,3 +33,8 @@ follows [SemVer](https://semver.org/).
   clangd cannot consume (`-fno-canonical-system-headers`,
   `-gcc-toolchain`/`--gcc-toolchain` and the `=`-joined form). First slice of
   the de-Bazeling quirk inventory (CARVE_DESIGN.md section 4.3).
+- Vendor a trimmed `analysis_v2.proto` (Bazel 9.1.0, cquery messages + the
+  `build.proto` import removed) at `carve/third_party/bazel`, and add the
+  `carve/aquery` module: `ParseCompileActions` decodes an
+  `ActionGraphContainer` and extracts compile actions (CppCompile/ObjcCompile/
+  CppModuleCompile) with path-fragment-resolved primary outputs. Unit-tested.
