@@ -15,6 +15,13 @@
 
 #include "carve/refresh/refresh.h"
 
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <iterator>
+#include <string>
+
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "carve/third_party/bazel/analysis_v2.pb.h"
 #include "gmock/gmock.h"
@@ -69,6 +76,47 @@ TEST(BuildEntriesTest, EmptyInputYieldsNoEntries) {
       BuildEntries("", Options{.directory = "/ws"});
   ASSERT_TRUE(entries.ok());
   EXPECT_THAT(*entries, IsEmpty());
+}
+
+TEST(RunRefreshTest, ReadsProtoFileAndWritesCompileCommands) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+
+  const std::filesystem::path dir = std::filesystem::path(::testing::TempDir()) / "carve_run_refresh";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  const std::filesystem::path proto_path = dir / "aquery.pb";
+  const std::filesystem::path out_path = dir / "compile_commands.json";
+  {
+    std::ofstream proto_file(proto_path, std::ios::binary);
+    const std::string bytes = container.SerializeAsString();
+    proto_file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  }
+
+  const absl::Status status = RunRefresh(FileOptions{
+      .aquery_proto_path = proto_path.string(),
+      .output_path = out_path.string(),
+      .directory = "/execroot/ws",
+  });
+  ASSERT_TRUE(status.ok()) << status;
+
+  std::ifstream out(out_path, std::ios::binary);
+  const std::string cdb_json((std::istreambuf_iterator<char>(out)),
+                             std::istreambuf_iterator<char>());
+  EXPECT_NE(cdb_json.find("\"file\": \"src/a.cc\""), std::string::npos) << cdb_json;
+  EXPECT_NE(cdb_json.find("\"directory\": \"/execroot/ws\""), std::string::npos) << cdb_json;
+}
+
+TEST(RunRefreshTest, MissingProtoFileIsNotFound) {
+  const absl::Status status = RunRefresh(FileOptions{
+      .aquery_proto_path = "/no/such/file.pb",
+      .output_path = (std::filesystem::path(::testing::TempDir()) / "unused.json").string(),
+      .directory = "/ws",
+  });
+  EXPECT_EQ(status.code(), absl::StatusCode::kNotFound);
 }
 
 }  // namespace

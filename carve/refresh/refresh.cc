@@ -15,13 +15,19 @@
 
 #include "carve/refresh/refresh.h"
 
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "carve/aquery/aquery.h"
 #include "carve/cdb/cdb.h"
 #include "carve/command/command.h"
@@ -79,6 +85,23 @@ absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view a
     });
   }
   return entries;
+}
+
+absl::Status RunRefresh(const FileOptions& options) {
+  std::ifstream stream(std::filesystem::path(options.aquery_proto_path), std::ios::binary);
+  if (!stream) {
+    return absl::NotFoundError(
+        absl::StrCat("cannot read aquery proto '", options.aquery_proto_path, "'"));
+  }
+  const std::string proto((std::istreambuf_iterator<char>(stream)),
+                          std::istreambuf_iterator<char>());
+
+  absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
+      BuildEntries(proto, Options{.directory = options.directory});
+  if (!entries.ok()) {
+    return entries.status();
+  }
+  return cdb::Write(std::filesystem::path(options.output_path), *entries);
 }
 
 }  // namespace carve::refresh

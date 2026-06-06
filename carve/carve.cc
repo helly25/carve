@@ -15,15 +15,27 @@
 
 #include <cstddef>
 #include <cstdio>
+#include <filesystem>
+#include <string>
 #include <string_view>
 #include <vector>
 
+#include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/flags/usage.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "carve/cli/cli.h"
+#include "carve/refresh/refresh.h"
+
+ABSL_FLAG(std::string, aquery_proto, "",
+          "Path to a serialized aquery ActionGraphContainer "
+          "(from `bazel aquery --output=proto`). Required by `refresh`.");
+ABSL_FLAG(std::string, output, "compile_commands.json",
+          "Path of the compilation database to write.");
+ABSL_FLAG(std::string, directory, "",
+          "Working directory recorded on each entry; defaults to the current directory.");
 
 namespace {
 
@@ -34,6 +46,24 @@ constexpr std::string_view kUsage =
 
 void PrintError(std::string_view message) {
   std::fputs(absl::StrCat("carve: error: ", message, "\n").c_str(), stderr);
+}
+
+// Runs the `refresh` subcommand from flags. This is the Layer A path that reads
+// a pre-captured aquery proto; in-process aquery and scan-deps land later.
+absl::Status RunRefreshFromFlags() {
+  const std::string aquery_proto = absl::GetFlag(FLAGS_aquery_proto);
+  if (aquery_proto.empty()) {
+    return absl::InvalidArgumentError("refresh requires --aquery_proto=PATH");
+  }
+  std::string directory = absl::GetFlag(FLAGS_directory);
+  if (directory.empty()) {
+    directory = std::filesystem::current_path().string();
+  }
+  return carve::refresh::RunRefresh(carve::refresh::FileOptions{
+      .aquery_proto_path = aquery_proto,
+      .output_path = absl::GetFlag(FLAGS_output),
+      .directory = directory,
+  });
 }
 
 int RealMain(int argc, char** argv) {
@@ -60,7 +90,17 @@ int RealMain(int argc, char** argv) {
     args.emplace_back(positional[i]);
   }
 
-  const absl::Status status = carve::cli::Dispatch(*cmd, args);
+  // Implemented subcommands are handled here from flags; the rest fall through
+  // to the dispatch stub until their modules land.
+  absl::Status status;
+  switch (*cmd) {
+    case carve::cli::Subcommand::kRefresh:
+      status = RunRefreshFromFlags();
+      break;
+    default:
+      status = carve::cli::Dispatch(*cmd, args);
+      break;
+  }
   if (!status.ok()) {
     PrintError(status.message());
     return 1;

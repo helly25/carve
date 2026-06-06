@@ -41,3 +41,7 @@ follows [SemVer](https://semver.org/).
 - `carve/refresh` module: `BuildEntries` orchestrates aquery -> de-Bazel ->
   source detection into `cdb::CompileCommand` entries (the Layer A pipeline,
   minus scan-deps and execroot path resolution). Unit-tested.
+- Wire `carve refresh --aquery_proto=FILE [--output=PATH] [--directory=DIR]`:
+  `refresh::RunRefresh` reads a captured aquery proto and atomically writes the
+  CDB. This is a runnable Layer A path (in-process aquery and scan-deps land
+  later). Verified end-to-end against carve's own `bazel aquery` output.

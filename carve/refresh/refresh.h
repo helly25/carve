@@ -20,6 +20,7 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "carve/cdb/cdb.h"
 
@@ -31,6 +32,19 @@ struct Options {
   // relative paths against it). For Bazel this is the execution root.
   std::string directory;
 };
+
+// File-oriented inputs for `RunRefresh`.
+struct FileOptions {
+  std::string aquery_proto_path;  // Serialized ActionGraphContainer to read.
+  std::string output_path;        // compile_commands.json to (atomically) write.
+  std::string directory;          // See Options::directory.
+};
+
+// Reads the aquery proto at `options.aquery_proto_path`, builds the entries via
+// `BuildEntries`, and atomically writes the compilation database to
+// `options.output_path`. Returns a non-OK status if the input cannot be read or
+// the output cannot be written.
+[[nodiscard]] absl::Status RunRefresh(const FileOptions& options);
 
 // Builds compilation-database entries from serialized aquery
 // `ActionGraphContainer` bytes: parse the compile actions, de-Bazel their argv,
