@@ -57,12 +57,16 @@ sources to rederive from.
 
 ## C++
 
+Code-style and structural rules (layout, namespaces, header guards, target
+naming, `deps` vs `implementation_deps`) live in [RULES.md](RULES.md). Summary:
+
 - C++23, clang 20.1+ (clang 22.x is the recommended pin via `toolchains_llvm`).
 - Style: Google C++ with deviations in [.clang-format](.clang-format).
 - Lints: [.clang-tidy](.clang-tidy), `WarningsAsErrors: true`.
 - No exceptions (`-fno-exceptions` is set in `.bazelrc`); use `absl::Status` /
   `absl::StatusOr` / `std::expected` for errors.
-- Tests: GTest. Place next to the unit under test as `<unit>_test.cc`.
+- Layout: one module per `carve/<module>/` package, `namespace carve::<module>`,
+  `<module>_cc` library + colocated `<module>_test` (`<unit>_test.cc`).
 
 ## Testing discipline
 
@@ -141,6 +145,7 @@ If you are an AI agent making changes:
 ## Documents to keep in sync
 
 - [CARVE_DESIGN.md](CARVE_DESIGN.md): architecture. Update when design changes.
+- [RULES.md](RULES.md): code-style and structural rules. Update when conventions change.
 - [README.md](README.md): user-facing intro. Update on user-visible changes.
 - [CHANGELOG.md](CHANGELOG.md): every PR adds a line under `[Unreleased]`.
 - [CONTRIBUTING.md](CONTRIBUTING.md): human onboarding. Should stay short.

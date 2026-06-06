@@ -85,6 +85,11 @@ Internal modules:
 | `cdb` | Atomic JSON output, merge semantics | mbo atomic-write |
 | `cli` | `absl::Flags`-driven subcommand dispatch | `absl::Flags` |
 
+Each module is a self-contained Bazel package following the helly25 house layout
+(see [RULES.md](RULES.md)): `carve/<module>/` with `namespace carve::<module>`,
+a `<module>_cc` library, and a colocated `<module>_test`. The binary entry point
+is `//carve:carve` (with a `//:refresh` alias for the documented `bazel run`).
+
 Per the library priority (section 2.1), where mbo already covers a need we use it; where it does not, we contribute the missing piece to mbo rather than rolling a local helper inside `carve`. Examples of expected contributions (subject to whatever mbo already ships):
 
 - Subprocess wrapper with separate stdout/stderr capture, env override, and a configurable timeout.
@@ -277,15 +282,18 @@ mbo brings Abseil transitively, so we do not list Abseil separately. If a future
 
 C++ build:
 
-- Single `cc_binary` target `//tool:carve`.
+- `cc_binary` target `//carve:carve` (with a `//:refresh` alias for `bazel run`).
+- Per-module `cc_library` targets `//carve/<module>:<module>_cc`, using
+  `implementation_deps` vs `deps` per the house convention (see [RULES.md](RULES.md)).
 - Linked statically where feasible. LLVM libs typically static.
 - Compiled with `-std=c++23`, `-stdlib=libc++` (under toolchains_llvm), `-Wall -Wextra -Werror`, `-Wpedantic`.
 - Sanitizer presets: `--config=asan`, `--config=tsan`, `--config=ubsan` for tests.
 
 Test layout:
 
-- `//tool:carve_test` GTest binary. Unit tests per module.
-- `//tool:end_to_end_test` integration tests that drive `carve` against synthetic Bazel workspaces in `testdata/`.
+- Per-module GTest `//carve/<module>:<module>_test`, `size = "small"`, colocated
+  with the unit as `<module>_test.cc`.
+- `//carve/e2e:end_to_end_test` integration tests that drive `carve` against synthetic Bazel workspaces in `testdata/`.
 - Quirk-specific golden tests: one input action, one expected output entry, per platform patch.
 
 ## 6. CLI surface

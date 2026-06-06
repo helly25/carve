@@ -15,3 +15,6 @@ follows [SemVer](https://semver.org/).
   vendoring as a maintenance task; fix dangling doc references.
 - Testing convention: write relevant tests at all levels; treat one-shot
   experiments as planning input for real tests, never as a substitute.
+- Align design with helly25 house conventions: `carve/<module>/` package layout,
+  `namespace carve::<module>`, `_cc`/`_test` target naming, `deps` vs
+  `implementation_deps`; add RULES.md (code style) referenced from AGENTS.md.
