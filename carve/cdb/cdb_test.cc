@@ -22,10 +22,17 @@
 #include <string>
 #include <vector>
 
+#include "absl/status/status_matchers.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace carve::cdb {
 namespace {
+
+using ::absl_testing::IsOk;
+using ::testing::Eq;
+using ::testing::HasSubstr;
+using ::testing::SizeIs;
 
 std::string ReadFile(const std::filesystem::path& path) {
   std::ifstream stream(path, std::ios::binary);
@@ -33,48 +40,45 @@ std::string ReadFile(const std::filesystem::path& path) {
 }
 
 TEST(ToJsonTest, EmptyIsBracketsAndNewline) {
-  EXPECT_EQ(ToJson({}), "[]\n");
+  EXPECT_THAT(ToJson({}), Eq("[]\n"));
 }
 
 TEST(ToJsonTest, SingleEntryWithArguments) {
   const std::vector<CompileCommand> entries = {
       {.directory = "/work", .file = "a.cc", .arguments = {"clang", "-c", "a.cc"}, .output = ""},
   };
-  EXPECT_EQ(ToJson(entries),
-            "[\n"
-            "  {\n"
-            "    \"directory\": \"/work\",\n"
-            "    \"file\": \"a.cc\",\n"
-            "    \"arguments\": [\n"
-            "      \"clang\",\n"
-            "      \"-c\",\n"
-            "      \"a.cc\"\n"
-            "    ]\n"
-            "  }\n"
-            "]\n");
+  EXPECT_THAT(ToJson(entries), Eq("[\n"
+                                  "  {\n"
+                                  "    \"directory\": \"/work\",\n"
+                                  "    \"file\": \"a.cc\",\n"
+                                  "    \"arguments\": [\n"
+                                  "      \"clang\",\n"
+                                  "      \"-c\",\n"
+                                  "      \"a.cc\"\n"
+                                  "    ]\n"
+                                  "  }\n"
+                                  "]\n"));
 }
 
 TEST(ToJsonTest, OutputFieldEmittedWhenPresent) {
   const std::vector<CompileCommand> entries = {
       {.directory = "/w", .file = "a.cc", .arguments = {"cc"}, .output = "a.o"},
   };
-  const std::string json = ToJson(entries);
-  EXPECT_NE(json.find("\"output\": \"a.o\""), std::string::npos);
+  EXPECT_THAT(ToJson(entries), HasSubstr("\"output\": \"a.o\""));
 }
 
 TEST(ToJsonTest, EscapesSpecialCharacters) {
   const std::vector<CompileCommand> entries = {
       {.directory = "/w", .file = std::string("a\"b\\c\nd\te"), .arguments = {}, .output = ""},
   };
-  const std::string json = ToJson(entries);
-  EXPECT_NE(json.find("\"file\": \"a\\\"b\\\\c\\nd\\te\""), std::string::npos) << json;
+  EXPECT_THAT(ToJson(entries), HasSubstr("\"file\": \"a\\\"b\\\\c\\nd\\te\""));
 }
 
 TEST(ToJsonTest, ControlCharacterUsesUnicodeEscape) {
   const std::vector<CompileCommand> entries = {
       {.directory = "/w", .file = std::string(1, '\x01'), .arguments = {}, .output = ""},
   };
-  EXPECT_NE(ToJson(entries).find("\\u0001"), std::string::npos);
+  EXPECT_THAT(ToJson(entries), HasSubstr("\\u0001"));
 }
 
 TEST(ToJsonTest, EntriesAreCommaSeparated) {
@@ -82,17 +86,16 @@ TEST(ToJsonTest, EntriesAreCommaSeparated) {
       {.directory = "/w", .file = "a.cc", .arguments = {}, .output = ""},
       {.directory = "/w", .file = "b.cc", .arguments = {}, .output = ""},
   };
-  EXPECT_EQ(ToJson(entries),
-            "[\n"
-            "  {\n"
-            "    \"directory\": \"/w\",\n"
-            "    \"file\": \"a.cc\"\n"
-            "  },\n"
-            "  {\n"
-            "    \"directory\": \"/w\",\n"
-            "    \"file\": \"b.cc\"\n"
-            "  }\n"
-            "]\n");
+  EXPECT_THAT(ToJson(entries), Eq("[\n"
+                                  "  {\n"
+                                  "    \"directory\": \"/w\",\n"
+                                  "    \"file\": \"a.cc\"\n"
+                                  "  },\n"
+                                  "  {\n"
+                                  "    \"directory\": \"/w\",\n"
+                                  "    \"file\": \"b.cc\"\n"
+                                  "  }\n"
+                                  "]\n"));
 }
 
 TEST(WriteAtomicallyTest, WritesContentExactly) {
@@ -100,19 +103,18 @@ TEST(WriteAtomicallyTest, WritesContentExactly) {
       std::filesystem::path(::testing::TempDir()) / "carve_cdb_write" / "compile_commands.json";
   std::filesystem::remove_all(path.parent_path());
 
-  ASSERT_TRUE(WriteAtomically(path, "hello\n").ok());
-  EXPECT_EQ(ReadFile(path), "hello\n");
+  ASSERT_THAT(WriteAtomically(path, "hello\n"), IsOk());
+  EXPECT_THAT(ReadFile(path), Eq("hello\n"));
 
   // Overwrites in place, leaving no stray temp files behind.
-  ASSERT_TRUE(WriteAtomically(path, "world").ok());
-  EXPECT_EQ(ReadFile(path), "world");
+  ASSERT_THAT(WriteAtomically(path, "world"), IsOk());
+  EXPECT_THAT(ReadFile(path), Eq("world"));
 
-  int entries = 0;
+  std::vector<std::filesystem::path> dir_entries;
   for (const auto& dir_entry : std::filesystem::directory_iterator(path.parent_path())) {
-    static_cast<void>(dir_entry);
-    ++entries;
+    dir_entries.push_back(dir_entry.path());
   }
-  EXPECT_EQ(entries, 1) << "temp files were left behind";
+  EXPECT_THAT(dir_entries, SizeIs(1)) << "temp files were left behind";
 }
 
 TEST(WriteTest, RoundTripsThroughToJson) {
@@ -121,8 +123,8 @@ TEST(WriteTest, RoundTripsThroughToJson) {
   };
   const std::filesystem::path path =
       std::filesystem::path(::testing::TempDir()) / "carve_cdb_roundtrip.json";
-  ASSERT_TRUE(Write(path, entries).ok());
-  EXPECT_EQ(ReadFile(path), ToJson(entries));
+  ASSERT_THAT(Write(path, entries), IsOk());
+  EXPECT_THAT(ReadFile(path), Eq(ToJson(entries)));
 }
 
 }  // namespace

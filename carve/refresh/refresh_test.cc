@@ -22,7 +22,8 @@
 #include <string>
 
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
+#include "absl/status/status_matchers.h"
+#include "carve/cdb/cdb.h"
 #include "carve/third_party/bazel/analysis_v2.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -30,7 +31,14 @@
 namespace carve::refresh {
 namespace {
 
+using ::absl_testing::IsOk;
+using ::absl_testing::IsOkAndHolds;
+using ::absl_testing::StatusIs;
+using ::testing::AllOf;
 using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::Field;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 
 analysis::Action* AddCompile(analysis::ActionGraphContainer& container, std::string_view key) {
@@ -48,16 +56,15 @@ TEST(BuildEntriesTest, MapsCompileActionToDeBazeledEntry) {
     compile->add_arguments(std::string(arg));
   }
 
-  const absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
-      BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"});
-  ASSERT_TRUE(entries.ok());
-  ASSERT_EQ(entries->size(), 1U);
-  const cdb::CompileCommand& got = entries->front();
-  EXPECT_EQ(got.directory, "/execroot/ws");
-  // `file` is made absolute against the directory; arguments stay exec-relative.
-  EXPECT_EQ(got.file, "/execroot/ws/src/a.cc");
-  // The de-Bazel transform dropped -fno-canonical-system-headers.
-  EXPECT_THAT(got.arguments, ElementsAre("clang", "-c", "src/a.cc", "-o", "bazel-out/a.o"));
+  // `file` is made absolute against the directory; arguments stay exec-relative
+  // and the de-Bazel transform dropped -fno-canonical-system-headers.
+  EXPECT_THAT(
+      BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"}),
+      IsOkAndHolds(ElementsAre(AllOf(
+          Field(&cdb::CompileCommand::directory, Eq("/execroot/ws")),
+          Field(&cdb::CompileCommand::file, Eq("/execroot/ws/src/a.cc")),
+          Field(&cdb::CompileCommand::arguments,
+                ElementsAre("clang", "-c", "src/a.cc", "-o", "bazel-out/a.o"))))));
 }
 
 TEST(BuildEntriesTest, AbsoluteSourcePathIsLeftUnchanged) {
@@ -67,11 +74,8 @@ TEST(BuildEntriesTest, AbsoluteSourcePathIsLeftUnchanged) {
   compile->add_arguments("-c");
   compile->add_arguments("/abs/src/a.cc");
 
-  const absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
-      BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"});
-  ASSERT_TRUE(entries.ok());
-  ASSERT_EQ(entries->size(), 1U);
-  EXPECT_EQ(entries->front().file, "/abs/src/a.cc");
+  EXPECT_THAT(BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"}),
+              IsOkAndHolds(ElementsAre(Field(&cdb::CompileCommand::file, Eq("/abs/src/a.cc")))));
 }
 
 TEST(BuildEntriesTest, EmptyDirectoryLeavesSourceRelative) {
@@ -81,11 +85,8 @@ TEST(BuildEntriesTest, EmptyDirectoryLeavesSourceRelative) {
   compile->add_arguments("-c");
   compile->add_arguments("src/a.cc");
 
-  const absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
-      BuildEntries(container.SerializeAsString(), Options{.directory = ""});
-  ASSERT_TRUE(entries.ok());
-  ASSERT_EQ(entries->size(), 1U);
-  EXPECT_EQ(entries->front().file, "src/a.cc");
+  EXPECT_THAT(BuildEntries(container.SerializeAsString(), Options{.directory = ""}),
+              IsOkAndHolds(ElementsAre(Field(&cdb::CompileCommand::file, Eq("src/a.cc")))));
 }
 
 TEST(BuildEntriesTest, SkipsActionsWithoutADetectableSource) {
@@ -94,17 +95,12 @@ TEST(BuildEntriesTest, SkipsActionsWithoutADetectableSource) {
   compile->add_arguments("clang");
   compile->add_arguments("--version");  // No source operand.
 
-  const absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
-      BuildEntries(container.SerializeAsString(), Options{.directory = "/ws"});
-  ASSERT_TRUE(entries.ok());
-  EXPECT_THAT(*entries, IsEmpty());
+  EXPECT_THAT(BuildEntries(container.SerializeAsString(), Options{.directory = "/ws"}),
+              IsOkAndHolds(IsEmpty()));
 }
 
 TEST(BuildEntriesTest, EmptyInputYieldsNoEntries) {
-  const absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
-      BuildEntries("", Options{.directory = "/ws"});
-  ASSERT_TRUE(entries.ok());
-  EXPECT_THAT(*entries, IsEmpty());
+  EXPECT_THAT(BuildEntries("", Options{.directory = "/ws"}), IsOkAndHolds(IsEmpty()));
 }
 
 TEST(RunRefreshTest, ReadsProtoFileAndWritesCompileCommands) {
@@ -125,27 +121,27 @@ TEST(RunRefreshTest, ReadsProtoFileAndWritesCompileCommands) {
     proto_file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
   }
 
-  const absl::Status status = RunRefresh(FileOptions{
-      .aquery_proto_path = proto_path.string(),
-      .output_path = out_path.string(),
-      .directory = "/execroot/ws",
-  });
-  ASSERT_TRUE(status.ok()) << status;
+  ASSERT_THAT(RunRefresh(FileOptions{
+                  .aquery_proto_path = proto_path.string(),
+                  .output_path = out_path.string(),
+                  .directory = "/execroot/ws",
+              }),
+              IsOk());
 
   std::ifstream out(out_path, std::ios::binary);
   const std::string cdb_json((std::istreambuf_iterator<char>(out)),
                              std::istreambuf_iterator<char>());
-  EXPECT_NE(cdb_json.find("\"file\": \"/execroot/ws/src/a.cc\""), std::string::npos) << cdb_json;
-  EXPECT_NE(cdb_json.find("\"directory\": \"/execroot/ws\""), std::string::npos) << cdb_json;
+  EXPECT_THAT(cdb_json, HasSubstr("\"file\": \"/execroot/ws/src/a.cc\""));
+  EXPECT_THAT(cdb_json, HasSubstr("\"directory\": \"/execroot/ws\""));
 }
 
 TEST(RunRefreshTest, MissingProtoFileIsNotFound) {
-  const absl::Status status = RunRefresh(FileOptions{
-      .aquery_proto_path = "/no/such/file.pb",
-      .output_path = (std::filesystem::path(::testing::TempDir()) / "unused.json").string(),
-      .directory = "/ws",
-  });
-  EXPECT_EQ(status.code(), absl::StatusCode::kNotFound);
+  EXPECT_THAT(RunRefresh(FileOptions{
+                  .aquery_proto_path = "/no/such/file.pb",
+                  .output_path = (std::filesystem::path(::testing::TempDir()) / "unused.json").string(),
+                  .directory = "/ws",
+              }),
+              StatusIs(absl::StatusCode::kNotFound));
 }
 
 }  // namespace

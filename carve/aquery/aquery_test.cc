@@ -15,7 +15,7 @@
 
 #include "carve/aquery/aquery.h"
 
-#include "absl/status/statusor.h"
+#include "absl/status/status_matchers.h"
 #include "carve/third_party/bazel/analysis_v2.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -23,13 +23,15 @@
 namespace carve::aquery {
 namespace {
 
+using ::absl_testing::IsOkAndHolds;
+using ::testing::AllOf;
 using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::Field;
 using ::testing::IsEmpty;
 
 TEST(ParseCompileActionsTest, EmptyInputYieldsNoActions) {
-  const absl::StatusOr<std::vector<CompileAction>> actions = ParseCompileActions("");
-  ASSERT_TRUE(actions.ok());
-  EXPECT_THAT(*actions, IsEmpty());
+  EXPECT_THAT(ParseCompileActions(""), IsOkAndHolds(IsEmpty()));
 }
 
 TEST(ParseCompileActionsTest, ExtractsCompileActionAndResolvesOutputPath) {
@@ -61,15 +63,13 @@ TEST(ParseCompileActionsTest, ExtractsCompileActionAndResolvesOutputPath) {
   genrule->set_mnemonic("Genrule");
   genrule->set_action_key("g1");
 
-  const absl::StatusOr<std::vector<CompileAction>> actions =
-      ParseCompileActions(container.SerializeAsString());
-  ASSERT_TRUE(actions.ok());
-  ASSERT_EQ(actions->size(), 1U);
-  const CompileAction& got = actions->front();
-  EXPECT_EQ(got.action_key, "k1");
-  EXPECT_EQ(got.mnemonic, "CppCompile");
-  EXPECT_THAT(got.arguments, ElementsAre("clang", "-c", "src/main.cc"));
-  EXPECT_EQ(got.primary_output, "src/main.o");
+  EXPECT_THAT(
+      ParseCompileActions(container.SerializeAsString()),
+      IsOkAndHolds(ElementsAre(AllOf(
+          Field(&CompileAction::action_key, Eq("k1")),
+          Field(&CompileAction::mnemonic, Eq("CppCompile")),
+          Field(&CompileAction::arguments, ElementsAre("clang", "-c", "src/main.cc")),
+          Field(&CompileAction::primary_output, Eq("src/main.o"))))));
 }
 
 TEST(ParseCompileActionsTest, ExpandsEmbeddedParamFile) {
@@ -86,11 +86,9 @@ TEST(ParseCompileActionsTest, ExpandsEmbeddedParamFile) {
   param_file->add_arguments("-o");
   param_file->add_arguments("a.o");
 
-  const absl::StatusOr<std::vector<CompileAction>> actions =
-      ParseCompileActions(container.SerializeAsString());
-  ASSERT_TRUE(actions.ok());
-  ASSERT_EQ(actions->size(), 1U);
-  EXPECT_THAT(actions->front().arguments, ElementsAre("clang", "-c", "src/a.cc", "-o", "a.o"));
+  EXPECT_THAT(ParseCompileActions(container.SerializeAsString()),
+              IsOkAndHolds(ElementsAre(Field(&CompileAction::arguments,
+                                             ElementsAre("clang", "-c", "src/a.cc", "-o", "a.o")))));
 }
 
 TEST(ParseCompileActionsTest, UnmatchedResponseFileTokenIsKeptVerbatim) {
@@ -103,11 +101,9 @@ TEST(ParseCompileActionsTest, UnmatchedResponseFileTokenIsKeptVerbatim) {
   compile->add_arguments("clang");
   compile->add_arguments("@bazel-out/k1.params");
 
-  const absl::StatusOr<std::vector<CompileAction>> actions =
-      ParseCompileActions(container.SerializeAsString());
-  ASSERT_TRUE(actions.ok());
-  ASSERT_EQ(actions->size(), 1U);
-  EXPECT_THAT(actions->front().arguments, ElementsAre("clang", "@bazel-out/k1.params"));
+  EXPECT_THAT(ParseCompileActions(container.SerializeAsString()),
+              IsOkAndHolds(ElementsAre(
+                  Field(&CompileAction::arguments, ElementsAre("clang", "@bazel-out/k1.params")))));
 }
 
 TEST(ParseCompileActionsTest, UnknownPrimaryOutputLeavesPathEmpty) {
@@ -117,11 +113,8 @@ TEST(ParseCompileActionsTest, UnknownPrimaryOutputLeavesPathEmpty) {
   compile->set_action_key("k2");
   compile->set_primary_output_id(999);  // No matching artifact.
 
-  const absl::StatusOr<std::vector<CompileAction>> actions =
-      ParseCompileActions(container.SerializeAsString());
-  ASSERT_TRUE(actions.ok());
-  ASSERT_EQ(actions->size(), 1U);
-  EXPECT_EQ(actions->front().primary_output, "");
+  EXPECT_THAT(ParseCompileActions(container.SerializeAsString()),
+              IsOkAndHolds(ElementsAre(Field(&CompileAction::primary_output, IsEmpty()))));
 }
 
 }  // namespace

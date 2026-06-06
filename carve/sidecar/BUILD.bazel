@@ -13,32 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 
 package(default_visibility = ["//visibility:private"])
 
-cc_library(
-    name = "cdb_cc",
-    srcs = ["cdb.cc"],
-    hdrs = ["cdb.h"],
-    implementation_deps = [
-        "@abseil-cpp//absl/strings",
-    ],
-    visibility = ["//carve:__subpackages__"],
-    deps = [
-        "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/types:span",
-    ],
+proto_library(
+    name = "carve_proto",
+    srcs = ["carve.proto"],
 )
 
-cc_test(
-    name = "cdb_test",
-    size = "small",
-    srcs = ["cdb_test.cc"],
-    deps = [
-        ":cdb_cc",
-        "@abseil-cpp//absl/status:status_matchers",
-        "@googletest//:gtest",
-        "@googletest//:gtest_main",
-    ],
+cc_proto_library(
+    name = "carve_cc_proto",
+    visibility = ["//carve:__subpackages__"],
+    deps = [":carve_proto"],
 )

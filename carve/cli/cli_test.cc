@@ -15,43 +15,41 @@
 
 #include "carve/cli/cli.h"
 
-#include <string_view>
-#include <vector>
-
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
+#include "absl/status/status_matchers.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace carve::cli {
 namespace {
 
+using ::absl_testing::IsOkAndHolds;
+using ::absl_testing::StatusIs;
+
 TEST(SubcommandTest, NamesRoundTripThroughParse) {
   for (const Subcommand cmd :
        {Subcommand::kRefresh, Subcommand::kAggregate, Subcommand::kShard, Subcommand::kPrune}) {
-    const absl::StatusOr<Subcommand> parsed = ParseSubcommand(SubcommandName(cmd));
-    ASSERT_TRUE(parsed.ok()) << "name=" << SubcommandName(cmd);
-    EXPECT_EQ(*parsed, cmd);
+    EXPECT_THAT(ParseSubcommand(SubcommandName(cmd)), IsOkAndHolds(cmd));
   }
 }
 
 TEST(SubcommandTest, KnownTokensParse) {
-  EXPECT_EQ(*ParseSubcommand("refresh"), Subcommand::kRefresh);
-  EXPECT_EQ(*ParseSubcommand("aggregate"), Subcommand::kAggregate);
-  EXPECT_EQ(*ParseSubcommand("shard"), Subcommand::kShard);
-  EXPECT_EQ(*ParseSubcommand("prune"), Subcommand::kPrune);
+  EXPECT_THAT(ParseSubcommand("refresh"), IsOkAndHolds(Subcommand::kRefresh));
+  EXPECT_THAT(ParseSubcommand("aggregate"), IsOkAndHolds(Subcommand::kAggregate));
+  EXPECT_THAT(ParseSubcommand("shard"), IsOkAndHolds(Subcommand::kShard));
+  EXPECT_THAT(ParseSubcommand("prune"), IsOkAndHolds(Subcommand::kPrune));
 }
 
 TEST(SubcommandTest, UnknownTokenIsInvalidArgument) {
-  EXPECT_EQ(ParseSubcommand("frobnicate").status().code(), absl::StatusCode::kInvalidArgument);
+  EXPECT_THAT(ParseSubcommand("frobnicate"), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(SubcommandTest, EmptyTokenIsInvalidArgument) {
-  EXPECT_EQ(ParseSubcommand("").status().code(), absl::StatusCode::kInvalidArgument);
+  EXPECT_THAT(ParseSubcommand(""), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(DispatchTest, KnownSubcommandIsUnimplementedForNow) {
-  const std::vector<std::string_view> args;
-  EXPECT_EQ(Dispatch(Subcommand::kRefresh, args).code(), absl::StatusCode::kUnimplemented);
+  EXPECT_THAT(Dispatch(Subcommand::kRefresh, {}), StatusIs(absl::StatusCode::kUnimplemented));
 }
 
 }  // namespace

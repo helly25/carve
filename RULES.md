@@ -65,3 +65,13 @@ file is corrected.
 - GTest, colocated with the unit. Every change is covered by a committed test at
   the appropriate level — see the testing-discipline section in
   [AGENTS.md](AGENTS.md#testing-discipline). No exemption category.
+- **Assert with matchers.** Prefer `EXPECT_THAT(actual, matcher)` over
+  `EXPECT_EQ`/`EXPECT_NE`. Use the expressive matcher, not a hand-rolled
+  predicate:
+  - substring: `EXPECT_THAT(text, HasSubstr("x"))` — never
+    `EXPECT_NE(text.find("x"), npos)`.
+  - equality: `Eq(...)` / `StrEq(...)`; containers: `ElementsAre`, `IsEmpty`,
+    `SizeIs`; structs: `Field(&T::member, matcher)` with `AllOf` for several.
+  - status: `absl_testing::IsOk()`, `StatusIs(code)`, and
+    `IsOkAndHolds(value_matcher)`. Use `IsOkAndHolds(m)` rather than asserting
+    `IsOk()` and then dereferencing (`*x`) to compare the value.
