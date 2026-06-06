@@ -15,20 +15,13 @@
 
 #include "carve/cdb/cdb.h"
 
-#include <atomic>
-#include <chrono>
-#include <cstdint>
-#include <cstdio>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <string>
 #include <string_view>
-#include <system_error>
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
+#include "carve/io/io.h"
 
 namespace carve::cdb {
 namespace {
@@ -67,18 +60,6 @@ void AppendKey(std::string& out, std::string_view indent, std::string_view key) 
   out.append(indent);
   AppendJsonString(out, key);
   out.append(": ");
-}
-
-// Returns a temporary path in the same directory as `path`, unique enough to
-// avoid collisions between concurrent writers within a process.
-std::filesystem::path TempSibling(const std::filesystem::path& path) {
-  static std::atomic<std::uint64_t> counter{0};
-  const auto stamp =
-      static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
-  const std::uint64_t seq = counter.fetch_add(1, std::memory_order_relaxed);
-  std::filesystem::path tmp = path;
-  tmp += absl::StrCat(".carve-tmp-", stamp, "-", seq);
-  return tmp;
 }
 
 }  // namespace
@@ -124,42 +105,8 @@ std::string ToJson(absl::Span<const CompileCommand> entries) {
   return out;
 }
 
-absl::Status WriteAtomically(const std::filesystem::path& path, std::string_view content) {
-  std::error_code ec;
-  const std::filesystem::path parent = path.parent_path();
-  if (!parent.empty()) {
-    std::filesystem::create_directories(parent, ec);
-    if (ec) {
-      return absl::UnknownError(
-          absl::StrCat("failed to create directory '", parent.string(), "': ", ec.message()));
-    }
-  }
-
-  const std::filesystem::path tmp = TempSibling(path);
-  {
-    std::ofstream stream(tmp, std::ios::binary | std::ios::trunc);
-    if (!stream) {
-      return absl::UnknownError(absl::StrCat("failed to open temp file '", tmp.string(), "'"));
-    }
-    stream.write(content.data(), static_cast<std::streamsize>(content.size()));
-    stream.close();
-    if (!stream) {
-      std::filesystem::remove(tmp, ec);
-      return absl::UnknownError(absl::StrCat("failed to write temp file '", tmp.string(), "'"));
-    }
-  }
-
-  std::filesystem::rename(tmp, path, ec);
-  if (ec) {
-    std::filesystem::remove(tmp, ec);
-    return absl::UnknownError(
-        absl::StrCat("failed to rename '", tmp.string(), "' to '", path.string(), "'"));
-  }
-  return absl::OkStatus();
-}
-
 absl::Status Write(const std::filesystem::path& path, absl::Span<const CompileCommand> entries) {
-  return WriteAtomically(path, ToJson(entries));
+  return io::WriteAtomically(path, ToJson(entries));
 }
 
 }  // namespace carve::cdb

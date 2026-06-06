@@ -32,7 +32,6 @@ namespace {
 using ::absl_testing::IsOk;
 using ::testing::Eq;
 using ::testing::HasSubstr;
-using ::testing::SizeIs;
 
 std::string ReadFile(const std::filesystem::path& path) {
   std::ifstream stream(path, std::ios::binary);
@@ -96,25 +95,6 @@ TEST(ToJsonTest, EntriesAreCommaSeparated) {
                                   "    \"file\": \"b.cc\"\n"
                                   "  }\n"
                                   "]\n"));
-}
-
-TEST(WriteAtomicallyTest, WritesContentExactly) {
-  const std::filesystem::path path =
-      std::filesystem::path(::testing::TempDir()) / "carve_cdb_write" / "compile_commands.json";
-  std::filesystem::remove_all(path.parent_path());
-
-  ASSERT_THAT(WriteAtomically(path, "hello\n"), IsOk());
-  EXPECT_THAT(ReadFile(path), Eq("hello\n"));
-
-  // Overwrites in place, leaving no stray temp files behind.
-  ASSERT_THAT(WriteAtomically(path, "world"), IsOk());
-  EXPECT_THAT(ReadFile(path), Eq("world"));
-
-  std::vector<std::filesystem::path> dir_entries;
-  for (const auto& dir_entry : std::filesystem::directory_iterator(path.parent_path())) {
-    dir_entries.push_back(dir_entry.path());
-  }
-  EXPECT_THAT(dir_entries, SizeIs(1)) << "temp files were left behind";
 }
 
 TEST(WriteTest, RoundTripsThroughToJson) {

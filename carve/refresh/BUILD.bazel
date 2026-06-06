@@ -24,8 +24,8 @@ cc_library(
     implementation_deps = [
         "//carve/aquery:aquery_cc",
         "//carve/command:command_cc",
+        "//carve/io:io_cc",
         "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/strings",
     ],
     visibility = ["//carve:__subpackages__"],
     deps = [

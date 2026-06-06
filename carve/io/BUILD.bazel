@@ -18,25 +18,26 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 package(default_visibility = ["//visibility:private"])
 
 cc_library(
-    name = "cdb_cc",
-    srcs = ["cdb.cc"],
-    hdrs = ["cdb.h"],
-    implementation_deps = [
-        "//carve/io:io_cc",
-    ],
+    name = "io_cc",
+    srcs = ["io.cc"],
+    hdrs = ["io.h"],
     visibility = ["//carve:__subpackages__"],
+    implementation_deps = [
+        "@abseil-cpp//absl/strings",
+    ],
     deps = [
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/types:span",
+        "@abseil-cpp//absl/status:statusor",
     ],
 )
 
 cc_test(
-    name = "cdb_test",
+    name = "io_test",
     size = "small",
-    srcs = ["cdb_test.cc"],
+    srcs = ["io_test.cc"],
     deps = [
-        ":cdb_cc",
+        ":io_cc",
+        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:status_matchers",
         "@googletest//:gtest",
         "@googletest//:gtest_main",

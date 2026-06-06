@@ -18,7 +18,6 @@
 
 #include <filesystem>
 #include <string>
-#include <string_view>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -43,13 +42,8 @@ struct CompileCommand {
 // compare byte-for-byte across runs.
 [[nodiscard]] std::string ToJson(absl::Span<const CompileCommand> entries);
 
-// Atomically replaces the file at `path` with `content` by writing to a sibling
-// temporary file and renaming it into place (rename is atomic within a
-// filesystem). Parent directories are created if missing. Returns a non-OK
-// status if any step fails; on failure `path` is left untouched.
-[[nodiscard]] absl::Status WriteAtomically(const std::filesystem::path& path, std::string_view content);
-
-// Convenience: `ToJson` followed by `WriteAtomically`.
+// Serializes `entries` with `ToJson` and atomically writes them to `path` (see
+// `carve::io::WriteAtomically`).
 [[nodiscard]] absl::Status Write(const std::filesystem::path& path, absl::Span<const CompileCommand> entries);
 
 }  // namespace carve::cdb
