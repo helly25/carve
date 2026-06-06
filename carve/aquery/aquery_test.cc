@@ -72,6 +72,44 @@ TEST(ParseCompileActionsTest, ExtractsCompileActionAndResolvesOutputPath) {
   EXPECT_EQ(got.primary_output, "src/main.o");
 }
 
+TEST(ParseCompileActionsTest, ExpandsEmbeddedParamFile) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = container.add_actions();
+  compile->set_mnemonic("CppCompile");
+  compile->set_action_key("k1");
+  compile->add_arguments("clang");
+  compile->add_arguments("@bazel-out/k1.params");
+  analysis::ParamFile* param_file = compile->add_param_files();
+  param_file->set_exec_path("bazel-out/k1.params");
+  param_file->add_arguments("-c");
+  param_file->add_arguments("src/a.cc");
+  param_file->add_arguments("-o");
+  param_file->add_arguments("a.o");
+
+  const absl::StatusOr<std::vector<CompileAction>> actions =
+      ParseCompileActions(container.SerializeAsString());
+  ASSERT_TRUE(actions.ok());
+  ASSERT_EQ(actions->size(), 1U);
+  EXPECT_THAT(actions->front().arguments, ElementsAre("clang", "-c", "src/a.cc", "-o", "a.o"));
+}
+
+TEST(ParseCompileActionsTest, UnmatchedResponseFileTokenIsKeptVerbatim) {
+  // Models `bazel aquery` without --include_param_files: no embedded param
+  // files, so the @-token cannot be expanded and must pass through.
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = container.add_actions();
+  compile->set_mnemonic("CppCompile");
+  compile->set_action_key("k1");
+  compile->add_arguments("clang");
+  compile->add_arguments("@bazel-out/k1.params");
+
+  const absl::StatusOr<std::vector<CompileAction>> actions =
+      ParseCompileActions(container.SerializeAsString());
+  ASSERT_TRUE(actions.ok());
+  ASSERT_EQ(actions->size(), 1U);
+  EXPECT_THAT(actions->front().arguments, ElementsAre("clang", "@bazel-out/k1.params"));
+}
+
 TEST(ParseCompileActionsTest, UnknownPrimaryOutputLeavesPathEmpty) {
   analysis::ActionGraphContainer container;
   analysis::Action* compile = container.add_actions();

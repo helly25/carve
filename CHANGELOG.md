@@ -45,3 +45,6 @@ follows [SemVer](https://semver.org/).
   `refresh::RunRefresh` reads a captured aquery proto and atomically writes the
   CDB. This is a runnable Layer A path (in-process aquery and scan-deps land
   later). Verified end-to-end against carve's own `bazel aquery` output.
+- `carve/aquery`: expand response files (`@path`) inline from the action's
+  embedded param files (`bazel aquery --include_param_files`), iteratively and
+  cycle-guarded; unmatched `@` tokens pass through verbatim.

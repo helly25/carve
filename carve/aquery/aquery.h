@@ -35,7 +35,9 @@ struct CompileAction {
 // Parses serialized `analysis.ActionGraphContainer` bytes (as produced by
 // `bazel aquery --output=proto`) and returns the compile actions it contains
 // (mnemonics CppCompile / ObjcCompile / CppModuleCompile). The primary output
-// path is resolved from the action graph's path-fragment table. Returns
+// path is resolved from the action graph's path-fragment table, and response
+// files (`@path`) are expanded inline from the action's embedded param files
+// when present (`bazel aquery --include_param_files`). Returns
 // `InvalidArgumentError` if the bytes are not a valid ActionGraphContainer.
 [[nodiscard]] absl::StatusOr<std::vector<CompileAction>> ParseCompileActions(
     std::string_view serialized);
