@@ -1,0 +1,13 @@
+/__pycache__
+
+# Bazel symlinks and generated artifacts.
+/external
+/bazel-*
+/compile_commands.json
+/.cache/
+/.vscode/
+
+# Local user overrides.
+/.bazelrc.user
+/.bazelrc.user.end
+/MODULE.bazel.lock

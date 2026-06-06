@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: Copyright (c) The helly25/carve authors (github.com/helly25/carve)
+# SPDX-License-Identifier: Apache-2.0
+
+# To debug bazel options, uncomment:
+# common --announce_rc
+
+common --enable_platform_specific_config
+
+# macOS tweaks (CoreFoundation and dynamic_lookup for clang on macOS).
+common --apple_platform_type=macos
+common:macos --features=-macos_default_link_flags
+common:macos --features=-supports_dynamic_linker
+common:macos --linkopt=-framework --linkopt=CoreFoundation --host_linkopt=-framework --host_linkopt=CoreFoundation
+common:macos --linkopt=-Wl,-undefined,dynamic_lookup --host_linkopt=-Wl,-undefined,dynamic_lookup
+
+try-import %workspace%/.bazelrc.user
+
+common --consistent_labels
+common --enable_bzlmod --noenable_workspace
+common --noincompatible_enable_cc_toolchain_resolution
+common --incompatible_disallow_empty_glob
+common --nolegacy_external_runfiles
+common --features=layering_check,parse_headers
+
+# Tell googletest to use Abseil for backtraces.
+common --define absl=1
+
+# C++23 by default. Carve targets clang 20.1+ and the bundled clang via
+# toolchains_llvm is the supported configuration.
+common --cxxopt=-std=c++23 --host_cxxopt=-std=c++23 --cxxopt=-Werror
+
+test --test_output=errors
+
+common --copt=-fdiagnostics-color=always
+common --copt=-fno-exceptions
+
+# --config=clang: route through toolchains_llvm.
+common:clang --incompatible_enable_cc_toolchain_resolution
+common:clang --cxxopt=-gmlt
+common:clang --host_cxxopt=-gmlt
+common:clang --linkopt=-fuse-ld=lld
+common:clang --host_linkopt=-fuse-ld=lld
+common:clang --define is_clang=true
+# Newer Clang versions dislike '-c' in some paths.
+# https://github.com/llvm/llvm-project/issues/100909
+common:clang --cxxopt=-Wno-unused-command-line-argument
+
+# Sanitizer presets.
+common:asan --copt -g
+common:asan --copt -fsanitize=address
+common:asan --copt -fno-sanitize=vptr
+common:asan --copt -fno-omit-frame-pointer
+common:asan --copt -DADDRESS_SANITIZER
+common:asan --linkopt -fsanitize=address
+common:asan --linkopt -fno-sanitize=vptr
+common:asan --linkopt -ldl
+common:asan --build_tag_filters=-no_san
+common:asan --test_tag_filters=-no_san
+common:asan --features=asan
+common:asan --action_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+common:asan --action_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+common:asan --test_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+common:asan --test_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+
+common:tsan --copt -fsanitize=thread
+common:tsan --copt -g
+common:tsan --copt -fno-omit-frame-pointer
+common:tsan --linkopt -fsanitize=thread
+common:tsan --features=tsan
+
+common:ubsan --copt -fsanitize=undefined
+common:ubsan --copt -g
+common:ubsan --copt -fno-omit-frame-pointer
+common:ubsan --linkopt -fsanitize=undefined
+common:ubsan --features=ubsan
+
+try-import %workspace%/.bazelrc.user.end
