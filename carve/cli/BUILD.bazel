@@ -21,10 +21,10 @@ cc_library(
     name = "cli_cc",
     srcs = ["cli.cc"],
     hdrs = ["cli.h"],
-    visibility = ["//carve:__subpackages__"],
     implementation_deps = [
         "@abseil-cpp//absl/strings",
     ],
+    visibility = ["//carve:__subpackages__"],
     deps = [
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",

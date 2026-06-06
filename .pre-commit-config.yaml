@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: Copyright (c) The helly25/carve authors (github.com/helly25/carve)
+# SPDX-License-Identifier: Apache-2.0
+#
+# Local quality gates. Install with `pre-commit install`; run on everything
+# with `pre-commit run -a`. Mirrors the helly25 house setup (mbo, bzl).
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: buildifier
+        name: buildifier (format + lint Starlark/BUILD)
+        entry: buildifier -lint=warn -mode=check
+        language: system
+        files: '(\.bzl|BUILD\.bazel|MODULE\.bazel|REPO\.bazel|WORKSPACE)$'
+
+      - id: blocked-merge-markers
+        name: no blocked-merge markers
+        entry: '(?i)do[ _-]?not[ _-]?merge'
+        language: pygrep
+        exclude: ^\.pre-commit-config\.yaml$
+
+      - id: todos-need-context
+        name: TODO/FIXME must cite an issue URL or email
+        entry: '(TODO|FIXME)(?!.*(https?://|[A-Za-z0-9._%+-]+@))'
+        language: pygrep
+        exclude: ^\.pre-commit-config\.yaml$

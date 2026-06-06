@@ -21,10 +21,10 @@ cc_library(
     name = "cdb_cc",
     srcs = ["cdb.cc"],
     hdrs = ["cdb.h"],
-    visibility = ["//carve:__subpackages__"],
     implementation_deps = [
         "@abseil-cpp//absl/strings",
     ],
+    visibility = ["//carve:__subpackages__"],
     deps = [
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/types:span",

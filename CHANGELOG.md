@@ -48,3 +48,6 @@ follows [SemVer](https://semver.org/).
 - `carve/aquery`: expand response files (`@path`) inline from the action's
   embedded param files (`bazel aquery --include_param_files`), iteratively and
   cycle-guarded; unmatched `@` tokens pass through verbatim.
+- Adopt pre-commit (`.pre-commit-config.yaml`): standard hygiene hooks,
+  buildifier format+lint, and pygrep guards (blocked-merge markers; TODO/FIXME
+  must cite an issue URL or email). Reformat BUILD files to buildifier canon.

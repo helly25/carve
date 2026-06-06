@@ -21,13 +21,13 @@ cc_library(
     name = "aquery_cc",
     srcs = ["aquery.cc"],
     hdrs = ["aquery.h"],
-    visibility = ["//carve:__subpackages__"],
     implementation_deps = [
         "//carve/third_party/bazel:analysis_v2_cc_proto",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/status",
     ],
+    visibility = ["//carve:__subpackages__"],
     deps = [
         "@abseil-cpp//absl/status:statusor",
     ],

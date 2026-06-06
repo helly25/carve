@@ -23,10 +23,20 @@ you have the right to contribute the change under Apache-2.0.
 
 ## Code style
 
-C++ follows the [Google style guide](https://google.github.io/styleguide/cppguide.html)
-with deviations encoded in [.clang-format](.clang-format) and
+Code-style and structural rules live in [RULES.md](RULES.md). C++ follows the
+[Google style guide](https://google.github.io/styleguide/cppguide.html) with
+deviations encoded in [.clang-format](.clang-format) and
 [.clang-tidy](.clang-tidy). Build with `--config=clang` to use the bundled
 toolchain.
+
+## Pre-commit
+
+Install the local quality gates once, then they run on every commit:
+
+```bash
+pre-commit install
+pre-commit run -a   # run against the whole tree
+```
 
 ## Tests
 

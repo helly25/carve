@@ -21,13 +21,13 @@ cc_library(
     name = "refresh_cc",
     srcs = ["refresh.cc"],
     hdrs = ["refresh.h"],
-    visibility = ["//carve:__subpackages__"],
     implementation_deps = [
         "//carve/aquery:aquery_cc",
         "//carve/command:command_cc",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
     ],
+    visibility = ["//carve:__subpackages__"],
     deps = [
         "//carve/cdb:cdb_cc",
         "@abseil-cpp//absl/status",
