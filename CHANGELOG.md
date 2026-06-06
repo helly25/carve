@@ -51,3 +51,6 @@ follows [SemVer](https://semver.org/).
 - Adopt pre-commit (`.pre-commit-config.yaml`): standard hygiene hooks,
   buildifier format+lint, and pygrep guards (blocked-merge markers; TODO/FIXME
   must cite an issue URL or email). Reformat BUILD files to buildifier canon.
+- `carve/refresh`: emit absolute `file` paths (resolved against the entry's
+  `directory`/execroot) so clangd matches sources unambiguously; absolute or
+  directory-less paths pass through unchanged.

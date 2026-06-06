@@ -48,11 +48,14 @@ struct FileOptions {
 
 // Builds compilation-database entries from serialized aquery
 // `ActionGraphContainer` bytes: parse the compile actions, de-Bazel their argv,
-// and pair each with the source file detected in that argv. Actions whose
-// source cannot be identified are skipped (they cannot form a valid entry).
+// and pair each with the source file detected in that argv. The `file` is made
+// absolute against `directory` (the execroot) so clangd matches it
+// unambiguously. Actions whose source cannot be identified are skipped (they
+// cannot form a valid entry).
 //
-// NOTE: path correctness (execroot vs. workspace, the `//external` symlink
-// choreography) is a later quirk; this produces the correct entry *shape*.
+// NOTE: the remaining path quirks (execroot-vs-workspace source mapping, the
+// `//external` symlink choreography, compiler-wrapper resolution) are still to
+// come; this produces the correct entry shape with absolute source paths.
 [[nodiscard]] absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(
     std::string_view aquery_proto, const Options& options);
 

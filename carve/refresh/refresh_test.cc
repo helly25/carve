@@ -54,9 +54,38 @@ TEST(BuildEntriesTest, MapsCompileActionToDeBazeledEntry) {
   ASSERT_EQ(entries->size(), 1U);
   const cdb::CompileCommand& got = entries->front();
   EXPECT_EQ(got.directory, "/execroot/ws");
-  EXPECT_EQ(got.file, "src/a.cc");
+  // `file` is made absolute against the directory; arguments stay exec-relative.
+  EXPECT_EQ(got.file, "/execroot/ws/src/a.cc");
   // The de-Bazel transform dropped -fno-canonical-system-headers.
   EXPECT_THAT(got.arguments, ElementsAre("clang", "-c", "src/a.cc", "-o", "bazel-out/a.o"));
+}
+
+TEST(BuildEntriesTest, AbsoluteSourcePathIsLeftUnchanged) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  compile->add_arguments("clang");
+  compile->add_arguments("-c");
+  compile->add_arguments("/abs/src/a.cc");
+
+  const absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
+      BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"});
+  ASSERT_TRUE(entries.ok());
+  ASSERT_EQ(entries->size(), 1U);
+  EXPECT_EQ(entries->front().file, "/abs/src/a.cc");
+}
+
+TEST(BuildEntriesTest, EmptyDirectoryLeavesSourceRelative) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  compile->add_arguments("clang");
+  compile->add_arguments("-c");
+  compile->add_arguments("src/a.cc");
+
+  const absl::StatusOr<std::vector<cdb::CompileCommand>> entries =
+      BuildEntries(container.SerializeAsString(), Options{.directory = ""});
+  ASSERT_TRUE(entries.ok());
+  ASSERT_EQ(entries->size(), 1U);
+  EXPECT_EQ(entries->front().file, "src/a.cc");
 }
 
 TEST(BuildEntriesTest, SkipsActionsWithoutADetectableSource) {
@@ -106,7 +135,7 @@ TEST(RunRefreshTest, ReadsProtoFileAndWritesCompileCommands) {
   std::ifstream out(out_path, std::ios::binary);
   const std::string cdb_json((std::istreambuf_iterator<char>(out)),
                              std::istreambuf_iterator<char>());
-  EXPECT_NE(cdb_json.find("\"file\": \"src/a.cc\""), std::string::npos) << cdb_json;
+  EXPECT_NE(cdb_json.find("\"file\": \"/execroot/ws/src/a.cc\""), std::string::npos) << cdb_json;
   EXPECT_NE(cdb_json.find("\"directory\": \"/execroot/ws\""), std::string::npos) << cdb_json;
 }
 

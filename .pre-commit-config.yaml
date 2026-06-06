@@ -33,4 +33,5 @@ repos:
         name: TODO/FIXME must cite an issue URL or email
         entry: '(TODO|FIXME)(?!.*(https?://|[A-Za-z0-9._%+-]+@))'
         language: pygrep
-        exclude: ^\.pre-commit-config\.yaml$
+        # Enforced on code/config, not Markdown prose that documents the rule.
+        exclude: '(\.md$|^\.pre-commit-config\.yaml$)'

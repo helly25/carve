@@ -59,6 +59,17 @@ std::string_view FindSource(const std::vector<std::string>& argv) {
   return source;
 }
 
+// Resolves a (possibly exec-root-relative) source path to an absolute path so
+// clangd matches it unambiguously. A path that is already absolute, or any path
+// when `directory` is empty, is returned unchanged.
+std::string AbsoluteFile(std::string_view directory, std::string_view source) {
+  const std::filesystem::path path(source);
+  if (directory.empty() || path.is_absolute()) {
+    return std::string(source);
+  }
+  return (std::filesystem::path(directory) / path).lexically_normal().string();
+}
+
 }  // namespace
 
 absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto,
@@ -79,7 +90,7 @@ absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view a
     }
     entries.push_back(cdb::CompileCommand{
         .directory = options.directory,
-        .file = std::string(source),
+        .file = AbsoluteFile(options.directory, source),
         .arguments = std::move(arguments),
         .output = action.primary_output,
     });
