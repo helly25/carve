@@ -29,3 +29,7 @@ follows [SemVer](https://semver.org/).
 - `carve/cdb` module: `CompileCommand` model, deterministic JSON Compilation
   Database serialization (`ToJson`), and atomic write (`WriteAtomically` /
   `Write`) via temp-file + rename. Unit-tested incl. escaping and overwrite.
+- `carve/command` module: IO-free `DeBazel` argv transform dropping flags
+  clangd cannot consume (`-fno-canonical-system-headers`,
+  `-gcc-toolchain`/`--gcc-toolchain` and the `=`-joined form). First slice of
+  the de-Bazeling quirk inventory (CARVE_DESIGN.md section 4.3).
