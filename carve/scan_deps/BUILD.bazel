@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: Copyright (c) The helly25/carve authors (github.com/helly25/carve)
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+package(default_visibility = ["//visibility:private"])
+
+# Gated to darwin-arm64 while the LLVM-libs linkage is proven on one platform;
+# other platforms follow once their prebuilt archives are wired (CARVE_DESIGN.md
+# section 4.2). On other platforms these targets are skipped as incompatible.
+_LLVM_PLATFORM = [
+    "@platforms//os:macos",
+    "@platforms//cpu:arm64",
+]
+
+cc_library(
+    name = "scan_deps_cc",
+    srcs = ["scan_deps.cc"],
+    hdrs = ["scan_deps.h"],
+    implementation_deps = [
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@llvm_libs_darwin_arm64//:dependency_scanning",
+    ],
+    target_compatible_with = _LLVM_PLATFORM,
+    visibility = ["//carve:__subpackages__"],
+    deps = [
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "scan_deps_test",
+    size = "small",
+    srcs = ["scan_deps_test.cc"],
+    target_compatible_with = _LLVM_PLATFORM,
+    deps = [
+        ":scan_deps_cc",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:status_matchers",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

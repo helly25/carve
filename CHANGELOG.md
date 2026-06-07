@@ -87,3 +87,15 @@ follows [SemVer](https://semver.org/).
 - CI: `.github/workflows/main.yml` — pre-commit job, `bazel test --config=clang
   //...` on ubuntu + macOS, and an aggregating `done` gate. Add pre-commit
   hooks for managed buildifier and actionlint (workflows are actionlint-clean).
+- Bump the toolchain to LLVM 22.1.7 (via a `toolchains_llvm` local override on
+  the released 1.7.0 — shas from its `toolchain/distributions/github.jsonc`),
+  whose headers are C++23-clean (no more `std::aligned_union_t`), so no
+  deprecation suppression is needed. macOS-x86_64 omitted (no upstream build).
+- **scan-deps (resolves the §4.2 linkage risk):** `carve/scan_deps` runs
+  clang's in-process `DependencyScanningTool` over a compile command and returns
+  its header set. Libs come from a same-version prebuilt LLVM `http_archive`
+  (`libclang-cpp` + headers, `-isystem`), gated to darwin-arm64 while proven on
+  one platform. Unit-tested (header scan + missing-header error).
+- Warning policy (`.bazelrc`): `external_include_paths` so third-party headers
+  (e.g. googletest under clang 22) don't trip our first-party `-Werror`; and
+  `-fno-rtti` for the `scan_deps` subtree to match LLVM's no-RTTI build.

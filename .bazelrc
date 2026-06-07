@@ -37,6 +37,17 @@ common --cxxopt=-std=c++23 --host_cxxopt=-std=c++23
 common --per_file_copt=//carve/.*@-Werror
 common --host_per_file_copt=//carve/.*@-Werror
 
+# Treat third-party (external repo) headers as system headers, so their warnings
+# do not trip our first-party -Werror (e.g. googletest's char8_t->char32_t under
+# clang 22, or other deps' diagnostics). Our own code stays fully warned.
+common --features=external_include_paths
+
+# The scan_deps subtree links libclang (LLVM is built with -fno-rtti). Match it
+# so deriving from clang's polymorphic types (e.g. DiagnosticConsumer) does not
+# reference a typeinfo symbol the dylib never exported.
+common --per_file_copt=//carve/scan_deps[/:].*@-fno-rtti
+common --host_per_file_copt=//carve/scan_deps[/:].*@-fno-rtti
+
 test --test_output=errors
 
 common --copt=-fdiagnostics-color=always
