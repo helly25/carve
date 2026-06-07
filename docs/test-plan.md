@@ -7,10 +7,13 @@ goal — a growing one is a smell.
 
 | Behavior verified by hand | How verified | Test that must replace it | Status |
 | --- | --- | --- | --- |
-| `carve refresh --targets=…` runs `bazel aquery` in-process (no pre-captured proto) and emits a CDB | Ran `carve refresh --targets=//carve/cdb/... --bazel=bazel` against this repo; got a 2-entry CDB | `//carve/e2e` test driving `carve refresh --targets` against a synthetic `testdata/` workspace (nested-Bazel; the `RunAquery`/`BazelExecRoot` glue is otherwise only dogfooded) | Open |
+| _(empty — every previously-dogfooded behavior is now covered by a committed test)_ | | | |
 
 Resolved:
 - `carve` exit-code mapping (missing/unknown subcommand → 2, failed refresh → 1)
-  is now covered by `//carve/e2e:end_to_end_test`.
+  is covered by `//carve/e2e:end_to_end_test`.
 - `carve refresh --aquery_proto=FILE` producing a CDB is covered by the same
   end-to-end test.
+- `carve refresh --targets=…` (in-process `bazel aquery` plus the
+  `bazel info execution_root` directory default) is covered hermetically by
+  `//carve/e2e:end_to_end_test` using a fake `bazel` stub.
