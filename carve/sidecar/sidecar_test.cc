@@ -81,5 +81,51 @@ TEST(DiffActionKeysTest, DeduplicatesAndSortsCurrentKeys) {
                     Field(&KeyDiff::common, IsEmpty())));
 }
 
+ActionRecord* AddRecord(ActionRecords& records, std::string_view key,
+                        const std::vector<std::string>& command) {
+  ActionRecord* record = records.add_records();
+  record->set_action_key(std::string(key));
+  for (const std::string& arg : command) {
+    record->add_command(arg);
+  }
+  return record;
+}
+
+TEST(MergeRecordsTest, UnchangedActionKeepsStoredCachedFields) {
+  ActionRecords stored;
+  AddRecord(stored, "k1", {"clang", "-c", "a.cc"})->add_headers("cached.h");
+
+  ActionRecords current;
+  AddRecord(current, "k1", {"clang", "-c", "a.cc"});  // Same command, no headers.
+
+  // The stored record (with its cached header) is preserved verbatim.
+  EXPECT_THAT(MergeRecords(stored, current).SerializeAsString(), Eq(stored.SerializeAsString()));
+}
+
+TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
+  ActionRecords stored;
+  AddRecord(stored, "k1", {"clang", "old"})->add_headers("cached.h");
+
+  ActionRecords current;
+  AddRecord(current, "k1", {"clang", "new"});
+
+  EXPECT_THAT(MergeRecords(stored, current).SerializeAsString(), Eq(current.SerializeAsString()));
+}
+
+TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
+  ActionRecords stored;
+  AddRecord(stored, "k1", {"clang"});  // Absent from current -> removed.
+
+  ActionRecords current;
+  AddRecord(current, "k3", {"clang"});
+  AddRecord(current, "k2", {"clang"});
+
+  ActionRecords expected;
+  AddRecord(expected, "k2", {"clang"});
+  AddRecord(expected, "k3", {"clang"});
+
+  EXPECT_THAT(MergeRecords(stored, current).SerializeAsString(), Eq(expected.SerializeAsString()));
+}
+
 }  // namespace
 }  // namespace carve::sidecar

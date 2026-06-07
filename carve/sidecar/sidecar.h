@@ -49,6 +49,14 @@ struct KeyDiff {
 [[nodiscard]] KeyDiff DiffActionKeys(const ActionRecords& stored,
                                      absl::Span<const std::string> current_keys);
 
+// Merges freshly-built `current` records against the `stored` sidecar. For an
+// action whose key AND command both match a stored record, the stored record is
+// kept — preserving cached fields (e.g. scan-deps-resolved headers) that the
+// current record does not yet carry. Otherwise (a new key, or a changed
+// command) the current record is used. Stored records whose key is absent from
+// `current` are dropped. The result is sorted by `action_key` for determinism.
+[[nodiscard]] ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current);
+
 }  // namespace carve::sidecar
 
 #endif  // CARVE_SIDECAR_SIDECAR_H_

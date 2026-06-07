@@ -37,6 +37,7 @@ cc_library(
     visibility = ["//carve:__subpackages__"],
     implementation_deps = [
         "//carve/io:io_cc",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
     ],
     deps = [

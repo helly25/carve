@@ -38,6 +38,8 @@ message ActionRecord {
   SourceKind source_kind = 6;
 
   int64 written_at = 7;  // unix seconds; for GC
+
+  string primary_output = 8;  // exec-root-relative path of the action's primary output
 }
 
 // Persisted set of action records (the entries-by-actionkey sidecar file).

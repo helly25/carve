@@ -36,6 +36,8 @@ ABSL_FLAG(std::string, output, "compile_commands.json",
           "Path of the compilation database to write.");
 ABSL_FLAG(std::string, directory, "",
           "Working directory recorded on each entry; defaults to the current directory.");
+ABSL_FLAG(std::string, sidecar, ".carve-cache/entries-by-actionkey.binpb",
+          "Action-records sidecar path for incremental refresh; empty disables it.");
 
 namespace {
 
@@ -63,6 +65,7 @@ absl::Status RunRefreshFromFlags() {
       .aquery_proto_path = aquery_proto,
       .output_path = absl::GetFlag(FLAGS_output),
       .directory = directory,
+      .sidecar_path = absl::GetFlag(FLAGS_sidecar),
   });
 }
 

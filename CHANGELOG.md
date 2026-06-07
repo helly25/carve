@@ -56,7 +56,12 @@ follows [SemVer](https://semver.org/).
   directory-less paths pass through unchanged.
 - Extract `carve/io` (atomic write + read), shared by `cdb` and `refresh`.
 - `carve/sidecar`: Edition 2024 `carve.proto` schema (ActionRecord/
-  ActionRecords/HeaderOwners/HeaderIndex) and `Load`/`Save` (binary proto,
-  atomic, missing-file => empty) plus `DiffActionKeys` partitioning stored vs.
-  current action keys into added/removed/common — the basis for incremental
-  refresh. Unit-tested.
+  ActionRecords/HeaderOwners/HeaderIndex; `primary_output` added) and
+  `Load`/`Save` (binary proto, atomic, missing-file => empty), `DiffActionKeys`,
+  and `MergeRecords` (keeps a stored record when key+command match, preserving
+  cached fields; rebuilds on change; drops removed). Unit-tested.
+- `carve/refresh`: records-based pipeline backed by the sidecar. `RunRefresh`
+  loads the sidecar, merges the current actions (reusing unchanged records),
+  writes the sidecar back, and emits the CDB from the merged set; `--sidecar`
+  flag (default `.carve-cache/entries-by-actionkey.binpb`, empty disables).
+  Verified idempotent end-to-end (CDB and sidecar byte-stable across runs).

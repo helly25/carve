@@ -24,6 +24,8 @@
 #include "absl/status/status.h"
 #include "absl/status/status_matchers.h"
 #include "carve/cdb/cdb.h"
+#include "carve/sidecar/carve.pb.h"
+#include "carve/sidecar/sidecar.h"
 #include "carve/third_party/bazel/analysis_v2.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -40,6 +42,17 @@ using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Property;
+
+// Serializes `message` to `path` (creating parents), returning `path`.
+template <typename Message>
+std::filesystem::path WriteProto(const std::filesystem::path& path, const Message& message) {
+  std::filesystem::create_directories(path.parent_path());
+  std::ofstream file(path, std::ios::binary);
+  const std::string bytes = message.SerializeAsString();
+  file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  return path;
+}
 
 analysis::Action* AddCompile(analysis::ActionGraphContainer& container, std::string_view key) {
   analysis::Action* action = container.add_actions();
@@ -140,8 +153,82 @@ TEST(RunRefreshTest, MissingProtoFileIsNotFound) {
                   .aquery_proto_path = "/no/such/file.pb",
                   .output_path = (std::filesystem::path(::testing::TempDir()) / "unused.json").string(),
                   .directory = "/ws",
+                  .sidecar_path = "",
               }),
               StatusIs(absl::StatusCode::kNotFound));
+}
+
+// Returns FileOptions rooted at a fresh temporary directory `name`.
+FileOptions TempRefresh(std::string_view name, const analysis::ActionGraphContainer& container) {
+  const std::filesystem::path dir = std::filesystem::path(::testing::TempDir()) / name;
+  std::filesystem::remove_all(dir);
+  return FileOptions{
+      .aquery_proto_path = WriteProto(dir / "aquery.pb", container).string(),
+      .output_path = (dir / "compile_commands.json").string(),
+      .directory = "/execroot/ws",
+      .sidecar_path = (dir / "entries.binpb").string(),
+  };
+}
+
+TEST(RunRefreshTest, UnchangedActionReusesStoredRecordWithCachedHeaders) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  const FileOptions options = TempRefresh("carve_incremental_reuse", container);
+
+  // Seed the sidecar with a record whose command matches the action's
+  // post-de-Bazel argv, plus a cached header the fresh record will not have.
+  ActionRecords seed;
+  ActionRecord* seeded = seed.add_records();
+  seeded->set_action_key("k1");
+  seeded->add_sources("src/a.cc");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    seeded->add_command(std::string(arg));
+  }
+  seeded->add_headers("cached.h");
+  ASSERT_THAT(sidecar::Save(options.sidecar_path, seed), IsOk());
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The unchanged action keeps the cached record verbatim.
+  EXPECT_THAT(sidecar::Load(options.sidecar_path),
+              IsOkAndHolds(Property(&ActionRecords::SerializeAsString,
+                                    Eq(seed.SerializeAsString()))));
+}
+
+TEST(RunRefreshTest, ChangedCommandRebuildsRecordDroppingStaleCache) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  const FileOptions options = TempRefresh("carve_incremental_changed", container);
+
+  // Seed a record under the same key but a different command, with a stale
+  // cached header that must be discarded.
+  ActionRecords seed;
+  ActionRecord* seeded = seed.add_records();
+  seeded->set_action_key("k1");
+  seeded->add_command("clang");
+  seeded->add_command("old");
+  seeded->add_headers("stale.h");
+  ASSERT_THAT(sidecar::Save(options.sidecar_path, seed), IsOk());
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The record is rebuilt from the current action (no stale header).
+  ActionRecords expected;
+  ActionRecord* rebuilt = expected.add_records();
+  rebuilt->set_action_key("k1");
+  rebuilt->add_sources("src/a.cc");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    rebuilt->add_command(std::string(arg));
+  }
+  EXPECT_THAT(sidecar::Load(options.sidecar_path),
+              IsOkAndHolds(Property(&ActionRecords::SerializeAsString,
+                                    Eq(expected.SerializeAsString()))));
 }
 
 }  // namespace

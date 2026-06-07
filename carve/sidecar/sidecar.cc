@@ -20,6 +20,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -69,6 +70,45 @@ KeyDiff DiffActionKeys(const ActionRecords& stored, absl::Span<const std::string
   std::sort(diff.removed.begin(), diff.removed.end());
   std::sort(diff.common.begin(), diff.common.end());
   return diff;
+}
+
+namespace {
+
+bool SameCommand(const ActionRecord& lhs, const ActionRecord& rhs) {
+  if (lhs.command_size() != rhs.command_size()) {
+    return false;
+  }
+  for (int i = 0; i < lhs.command_size(); ++i) {
+    if (lhs.command(i) != rhs.command(i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
+ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current) {
+  absl::flat_hash_map<std::string_view, const ActionRecord*> stored_by_key;
+  stored_by_key.reserve(static_cast<std::size_t>(stored.records_size()));
+  for (const ActionRecord& record : stored.records()) {
+    stored_by_key.emplace(record.action_key(), &record);
+  }
+
+  ActionRecords merged;
+  for (const ActionRecord& cur : current.records()) {
+    const auto it = stored_by_key.find(cur.action_key());
+    if (it != stored_by_key.end() && SameCommand(*it->second, cur)) {
+      *merged.add_records() = *it->second;  // Unchanged: keep cached fields.
+    } else {
+      *merged.add_records() = cur;  // Added or changed.
+    }
+  }
+  std::sort(merged.mutable_records()->pointer_begin(), merged.mutable_records()->pointer_end(),
+            [](const ActionRecord* lhs, const ActionRecord* rhs) {
+              return lhs->action_key() < rhs->action_key();
+            });
+  return merged;
 }
 
 }  // namespace carve::sidecar

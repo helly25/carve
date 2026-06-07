@@ -38,12 +38,15 @@ struct FileOptions {
   std::string aquery_proto_path;  // Serialized ActionGraphContainer to read.
   std::string output_path;        // compile_commands.json to (atomically) write.
   std::string directory;          // See Options::directory.
+  std::string sidecar_path;       // Action-records sidecar; empty disables it.
 };
 
-// Reads the aquery proto at `options.aquery_proto_path`, builds the entries via
-// `BuildEntries`, and atomically writes the compilation database to
-// `options.output_path`. Returns a non-OK status if the input cannot be read or
-// the output cannot be written.
+// Reads the aquery proto at `options.aquery_proto_path`, builds the current
+// action records, and — when `options.sidecar_path` is set — merges them
+// against the stored sidecar (reusing cached records for unchanged actions),
+// writes the sidecar back, and emits the compilation database from the merged
+// set. With no sidecar path it emits straight from the current records. Returns
+// a non-OK status if any input cannot be read or any output cannot be written.
 [[nodiscard]] absl::Status RunRefresh(const FileOptions& options);
 
 // Builds compilation-database entries from serialized aquery

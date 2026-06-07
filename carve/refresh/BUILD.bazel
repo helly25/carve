@@ -25,6 +25,8 @@ cc_library(
         "//carve/aquery:aquery_cc",
         "//carve/command:command_cc",
         "//carve/io:io_cc",
+        "//carve/sidecar:carve_cc_proto",
+        "//carve/sidecar:sidecar_cc",
         "@abseil-cpp//absl/container:flat_hash_set",
     ],
     visibility = ["//carve:__subpackages__"],
@@ -42,6 +44,8 @@ cc_test(
     deps = [
         ":refresh_cc",
         "//carve/cdb:cdb_cc",
+        "//carve/sidecar:carve_cc_proto",
+        "//carve/sidecar:sidecar_cc",
         "//carve/third_party/bazel:analysis_v2_cc_proto",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:status_matchers",
