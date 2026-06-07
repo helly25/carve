@@ -88,24 +88,34 @@ bool SameCommand(const ActionRecord& lhs, const ActionRecord& rhs) {
 
 }  // namespace
 
-ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current) {
-  absl::flat_hash_map<std::string_view, const ActionRecord*> stored_by_key;
-  stored_by_key.reserve(static_cast<std::size_t>(stored.records_size()));
+ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current,
+                           std::string_view project_id) {
+  ActionRecords merged;
+  // Records of other projects pass through untouched; index our project's
+  // stored records by key for reuse.
+  absl::flat_hash_map<std::string_view, const ActionRecord*> stored_own;
   for (const ActionRecord& record : stored.records()) {
-    stored_by_key.emplace(record.action_key(), &record);
+    if (record.project_id() == project_id) {
+      stored_own.emplace(record.action_key(), &record);
+    } else {
+      *merged.add_records() = record;
+    }
   }
 
-  ActionRecords merged;
   for (const ActionRecord& cur : current.records()) {
-    const auto it = stored_by_key.find(cur.action_key());
-    if (it != stored_by_key.end() && SameCommand(*it->second, cur)) {
+    const auto it = stored_own.find(cur.action_key());
+    if (it != stored_own.end() && SameCommand(*it->second, cur)) {
       *merged.add_records() = *it->second;  // Unchanged: keep cached fields.
     } else {
       *merged.add_records() = cur;  // Added or changed.
     }
   }
+
   std::sort(merged.mutable_records()->pointer_begin(), merged.mutable_records()->pointer_end(),
             [](const ActionRecord* lhs, const ActionRecord* rhs) {
+              if (lhs->project_id() != rhs->project_id()) {
+                return lhs->project_id() < rhs->project_id();
+              }
               return lhs->action_key() < rhs->action_key();
             });
   return merged;

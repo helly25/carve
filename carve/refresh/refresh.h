@@ -31,6 +31,11 @@ struct Options {
   // The working directory recorded on each entry (clangd resolves an entry's
   // relative paths against it). For Bazel this is the execution root.
   std::string directory;
+
+  // Identifies the refreshing project; records are stamped with it and the
+  // sidecar merge is scoped to it so projects sharing a CDB do not clobber one
+  // another. Empty means the unnamed default project.
+  std::string project_id;
 };
 
 // File-oriented inputs for `RunRefresh`.
@@ -39,6 +44,7 @@ struct FileOptions {
   std::string output_path;        // compile_commands.json to (atomically) write.
   std::string directory;          // See Options::directory.
   std::string sidecar_path;       // Action-records sidecar; empty disables it.
+  std::string project_id;         // See Options::project_id.
 };
 
 // Reads the aquery proto at `options.aquery_proto_path`, builds the current

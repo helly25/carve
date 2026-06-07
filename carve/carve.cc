@@ -38,6 +38,9 @@ ABSL_FLAG(std::string, directory, "",
           "Working directory recorded on each entry; defaults to the current directory.");
 ABSL_FLAG(std::string, sidecar, ".carve-cache/entries-by-actionkey.binpb",
           "Action-records sidecar path for incremental refresh; empty disables it.");
+ABSL_FLAG(std::string, project_id, "",
+          "Project identifier; scopes the sidecar merge so projects sharing a "
+          "compilation database do not clobber each other.");
 
 namespace {
 
@@ -66,6 +69,7 @@ absl::Status RunRefreshFromFlags() {
       .output_path = absl::GetFlag(FLAGS_output),
       .directory = directory,
       .sidecar_path = absl::GetFlag(FLAGS_sidecar),
+      .project_id = absl::GetFlag(FLAGS_project_id),
   });
 }
 

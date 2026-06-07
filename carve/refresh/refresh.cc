@@ -73,7 +73,8 @@ std::string AbsoluteFile(std::string_view directory, std::string_view source) {
 // Maps one compile action to an ActionRecord, de-Bazeling its argv and detecting
 // the source operand. Returns nullopt when no source can be identified (such an
 // action cannot form a valid compilation-database entry).
-std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action) {
+std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action,
+                                       std::string_view project_id) {
   std::vector<std::string> arguments = command::DeBazel(action.arguments);
   const std::string_view source = FindSource(arguments);
   if (source.empty()) {
@@ -85,17 +86,22 @@ std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action) {
   for (std::string& arg : arguments) {
     record.add_command(std::move(arg));
   }
-  // Edition 2024 fields have explicit presence, so only set the output when it
-  // exists; otherwise an empty value would serialize and differ from a record
-  // that never had one.
+  // Edition 2024 fields have explicit presence, so only set optional fields when
+  // they exist; otherwise an empty value would serialize and differ from a
+  // record that never had one.
   if (!action.primary_output.empty()) {
     record.set_primary_output(action.primary_output);
+  }
+  if (!project_id.empty()) {
+    record.set_project_id(project_id);
   }
   return record;
 }
 
-// Builds the current action records from serialized aquery bytes.
-absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto) {
+// Builds the current action records (all stamped with `project_id`) from
+// serialized aquery bytes.
+absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto,
+                                           std::string_view project_id) {
   absl::StatusOr<std::vector<aquery::CompileAction>> actions =
       aquery::ParseCompileActions(aquery_proto);
   if (!actions.ok()) {
@@ -103,7 +109,7 @@ absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto) {
   }
   ActionRecords records;
   for (const aquery::CompileAction& action : *actions) {
-    std::optional<ActionRecord> record = MakeRecord(action);
+    std::optional<ActionRecord> record = MakeRecord(action, project_id);
     if (record.has_value()) {
       *records.add_records() = *std::move(record);
     }
@@ -139,7 +145,7 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
 
 absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto,
                                                               const Options& options) {
-  const absl::StatusOr<ActionRecords> records = BuildRecords(aquery_proto);
+  const absl::StatusOr<ActionRecords> records = BuildRecords(aquery_proto, options.project_id);
   if (!records.ok()) {
     return records.status();
   }
@@ -151,7 +157,7 @@ absl::Status RunRefresh(const FileOptions& options) {
   if (!proto.ok()) {
     return proto.status();
   }
-  absl::StatusOr<ActionRecords> current = BuildRecords(*proto);
+  absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id);
   if (!current.ok()) {
     return current.status();
   }
@@ -164,7 +170,7 @@ absl::Status RunRefresh(const FileOptions& options) {
     if (!stored.ok()) {
       return stored.status();
     }
-    merged = sidecar::MergeRecords(*stored, *current);
+    merged = sidecar::MergeRecords(*stored, *current, options.project_id);
     if (const absl::Status saved = sidecar::Save(options.sidecar_path, merged); !saved.ok()) {
       return saved;
     }

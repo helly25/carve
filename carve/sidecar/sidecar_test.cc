@@ -99,7 +99,7 @@ TEST(MergeRecordsTest, UnchangedActionKeepsStoredCachedFields) {
   AddRecord(current, "k1", {"clang", "-c", "a.cc"});  // Same command, no headers.
 
   // The stored record (with its cached header) is preserved verbatim.
-  EXPECT_THAT(MergeRecords(stored, current).SerializeAsString(), Eq(stored.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, "").SerializeAsString(), Eq(stored.SerializeAsString()));
 }
 
 TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
@@ -109,7 +109,7 @@ TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
   ActionRecords current;
   AddRecord(current, "k1", {"clang", "new"});
 
-  EXPECT_THAT(MergeRecords(stored, current).SerializeAsString(), Eq(current.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, "").SerializeAsString(), Eq(current.SerializeAsString()));
 }
 
 TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
@@ -124,7 +124,42 @@ TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
   AddRecord(expected, "k2", {"clang"});
   AddRecord(expected, "k3", {"clang"});
 
-  EXPECT_THAT(MergeRecords(stored, current).SerializeAsString(), Eq(expected.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, "").SerializeAsString(), Eq(expected.SerializeAsString()));
+}
+
+TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
+  ActionRecords stored;
+  AddRecord(stored, "k1", {"clang", "a"})->set_project_id("A");
+  AddRecord(stored, "k2", {"clang", "b"})->set_project_id("B");
+
+  // Refresh project A: k1's command changed; B must be left alone.
+  ActionRecords current;
+  AddRecord(current, "k1", {"clang", "a2"})->set_project_id("A");
+
+  ActionRecords expected;
+  AddRecord(expected, "k1", {"clang", "a2"})->set_project_id("A");
+  AddRecord(expected, "k2", {"clang", "b"})->set_project_id("B");
+
+  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(),
+              Eq(expected.SerializeAsString()));
+}
+
+TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) {
+  ActionRecords stored;
+  AddRecord(stored, "k1", {"clang"})->set_project_id("A");
+  AddRecord(stored, "k2", {"clang"})->set_project_id("A");
+  AddRecord(stored, "k3", {"clang"})->set_project_id("B");
+
+  // Refresh project A keeps only k1; k2 (own, removed) is dropped, k3 (B) stays.
+  ActionRecords current;
+  AddRecord(current, "k1", {"clang"})->set_project_id("A");
+
+  ActionRecords expected;
+  AddRecord(expected, "k1", {"clang"})->set_project_id("A");
+  AddRecord(expected, "k3", {"clang"})->set_project_id("B");
+
+  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(),
+              Eq(expected.SerializeAsString()));
 }
 
 }  // namespace

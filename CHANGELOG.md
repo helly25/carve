@@ -65,3 +65,8 @@ follows [SemVer](https://semver.org/).
   writes the sidecar back, and emits the CDB from the merged set; `--sidecar`
   flag (default `.carve-cache/entries-by-actionkey.binpb`, empty disables).
   Verified idempotent end-to-end (CDB and sidecar byte-stable across runs).
+- Project-scoped merge (design goal #3): records carry a `project_id`,
+  `MergeRecords` only replaces the refreshing project's rows and leaves other
+  projects untouched, and the emitted CDB combines all projects. `--project_id`
+  flag. Verified end-to-end: refreshing project A then B yields a combined CDB,
+  and re-refreshing A does not clobber B.
