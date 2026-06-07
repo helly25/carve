@@ -15,14 +15,19 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
 
-  - repo: local
+  - repo: https://github.com/keith/pre-commit-buildifier
+    rev: 8.0.3
     hooks:
       - id: buildifier
-        name: buildifier (format + lint Starlark/BUILD)
-        entry: buildifier -lint=warn -mode=check
-        language: system
-        files: '(\.bzl|BUILD\.bazel|MODULE\.bazel|REPO\.bazel|WORKSPACE)$'
+      - id: buildifier-lint
 
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint
+
+  - repo: local
+    hooks:
       - id: blocked-merge-markers
         name: no blocked-merge markers
         entry: '(?i)do[ _-]?not[ _-]?merge'

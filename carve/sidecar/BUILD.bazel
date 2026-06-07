@@ -34,12 +34,12 @@ cc_library(
     name = "sidecar_cc",
     srcs = ["sidecar.cc"],
     hdrs = ["sidecar.h"],
-    visibility = ["//carve:__subpackages__"],
     implementation_deps = [
         "//carve/io:io_cc",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
     ],
+    visibility = ["//carve:__subpackages__"],
     deps = [
         ":carve_cc_proto",
         "@abseil-cpp//absl/status",

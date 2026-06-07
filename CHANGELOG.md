@@ -82,4 +82,8 @@ follows [SemVer](https://semver.org/).
 - `//carve/e2e:end_to_end_test`: drives the built `carve` binary (via
   `carve/process`) against a generated aquery proto and asserts the produced
   CDB plus the exit-code contract (missing/unknown subcommand => 2, failed
-  refresh => 1). Clears the corresponding `docs/test-plan.md` debts.
+  refresh => 1). A fake-`bazel` stub also covers the in-process `--targets`
+  path hermetically. `docs/test-plan.md` is now empty of open debts.
+- CI: `.github/workflows/main.yml` — pre-commit job, `bazel test --config=clang
+  //...` on ubuntu + macOS, and an aggregating `done` gate. Add pre-commit
+  hooks for managed buildifier and actionlint (workflows are actionlint-clean).

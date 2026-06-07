@@ -21,7 +21,7 @@ cc_test(
     name = "end_to_end_test",
     size = "small",
     srcs = ["end_to_end_test.cc"],
-    data = ["//carve:carve"],
+    data = ["//carve"],
     deps = [
         "//carve/process:process_cc",
         "//carve/third_party/bazel:analysis_v2_cc_proto",
