@@ -79,3 +79,7 @@ follows [SemVer](https://semver.org/).
 - Default the CDB `directory` to `bazel info execution_root` when `--directory`
   is unset, so exec-relative argv resolve for clangd (entries are now absolute
   under the execroot). Dogfooded.
+- `//carve/e2e:end_to_end_test`: drives the built `carve` binary (via
+  `carve/process`) against a generated aquery proto and asserts the produced
+  CDB plus the exit-code contract (missing/unknown subcommand => 2, failed
+  refresh => 1). Clears the corresponding `docs/test-plan.md` debts.
