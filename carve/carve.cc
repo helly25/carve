@@ -15,7 +15,6 @@
 
 #include <cstddef>
 #include <cstdio>
-#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -60,10 +59,6 @@ void PrintError(std::string_view message) {
 // Runs the `refresh` subcommand from flags. This is the Layer A path that reads
 // a pre-captured aquery proto; in-process aquery and scan-deps land later.
 absl::Status RunRefreshFromFlags() {
-  std::string directory = absl::GetFlag(FLAGS_directory);
-  if (directory.empty()) {
-    directory = std::filesystem::current_path().string();
-  }
   std::vector<std::string> targets;
   const std::string targets_flag = absl::GetFlag(FLAGS_targets);
   if (!targets_flag.empty()) {
@@ -74,7 +69,7 @@ absl::Status RunRefreshFromFlags() {
       .targets = std::move(targets),
       .bazel_path = absl::GetFlag(FLAGS_bazel),
       .output_path = absl::GetFlag(FLAGS_output),
-      .directory = directory,
+      .directory = absl::GetFlag(FLAGS_directory),
       .sidecar_path = absl::GetFlag(FLAGS_sidecar),
       .project_id = absl::GetFlag(FLAGS_project_id),
   });

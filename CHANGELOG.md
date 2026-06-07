@@ -76,3 +76,6 @@ follows [SemVer](https://semver.org/).
   `bazel aquery --output=proto --include_param_files` itself (no pre-captured
   proto needed); `--aquery_proto` still overrides. `--targets` defaults to
   `//...`. This is the real Layer A entry point. Dogfooded against this repo.
+- Default the CDB `directory` to `bazel info execution_root` when `--directory`
+  is unset, so exec-relative argv resolve for clangd (entries are now absolute
+  under the execroot). Dogfooded.

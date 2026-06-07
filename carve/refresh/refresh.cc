@@ -144,6 +144,26 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
   return entries;
 }
 
+// Returns `bazel info execution_root` (trimmed): the directory clangd should
+// resolve each entry's relative paths against.
+absl::StatusOr<std::string> BazelExecRoot(const std::string& bazel) {
+  absl::StatusOr<process::CommandResult> result =
+      process::Run({bazel.empty() ? "bazel" : bazel, "info", "execution_root"});
+  if (!result.ok()) {
+    return result.status();
+  }
+  if (result->exit_code != 0) {
+    return absl::UnknownError(
+        absl::StrCat("bazel info execution_root failed (exit ", result->exit_code,
+                     "): ", result->stderr_data));
+  }
+  std::string root = std::move(result->stdout_data);
+  while (!root.empty() && (root.back() == '\n' || root.back() == '\r' || root.back() == ' ')) {
+    root.pop_back();
+  }
+  return root;
+}
+
 // Runs `bazel aquery --output=proto` over `targets`, filtered to compile
 // mnemonics and with param files embedded, and returns the serialized
 // ActionGraphContainer bytes.
@@ -188,6 +208,16 @@ absl::Status RunRefresh(const FileOptions& options) {
     return proto.status();
   }
 
+  // Default the entry directory to the execroot so exec-relative argv resolve.
+  std::string directory = options.directory;
+  if (directory.empty()) {
+    absl::StatusOr<std::string> execroot = BazelExecRoot(options.bazel_path);
+    if (!execroot.ok()) {
+      return execroot.status();
+    }
+    directory = *std::move(execroot);
+  }
+
   absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id);
   if (!current.ok()) {
     return current.status();
@@ -207,7 +237,7 @@ absl::Status RunRefresh(const FileOptions& options) {
     }
   }
 
-  return cdb::Write(options.output_path, EntriesFromRecords(merged, options.directory));
+  return cdb::Write(options.output_path, EntriesFromRecords(merged, directory));
 }
 
 }  // namespace carve::refresh

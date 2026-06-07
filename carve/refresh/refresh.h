@@ -46,7 +46,7 @@ struct FileOptions {
                                      // path is given (e.g. {"//..."}).
   std::string bazel_path;            // bazel binary; empty means "bazel" on PATH.
   std::string output_path;           // compile_commands.json to (atomically) write.
-  std::string directory;             // See Options::directory.
+  std::string directory;             // Entry directory; empty => `bazel info execution_root`.
   std::string sidecar_path;          // Action-records sidecar; empty disables it.
   std::string project_id;            // See Options::project_id.
 };
