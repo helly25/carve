@@ -25,10 +25,13 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "carve/aquery/aquery.h"
 #include "carve/cdb/cdb.h"
 #include "carve/command/command.h"
 #include "carve/io/io.h"
+#include "carve/process/process.h"
 #include "carve/sidecar/carve.pb.h"
 #include "carve/sidecar/sidecar.h"
 
@@ -141,6 +144,26 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
   return entries;
 }
 
+// Runs `bazel aquery --output=proto` over `targets`, filtered to compile
+// mnemonics and with param files embedded, and returns the serialized
+// ActionGraphContainer bytes.
+absl::StatusOr<std::string> RunAquery(const std::vector<std::string>& targets,
+                                      const std::string& bazel) {
+  const std::string expr = absl::StrCat(
+      "mnemonic(\"CppCompile|ObjcCompile|CppModuleCompile\", ", absl::StrJoin(targets, " + "), ")");
+  const std::vector<std::string> argv = {bazel.empty() ? "bazel" : bazel, "aquery",
+                                         "--output=proto", "--include_param_files", expr};
+  absl::StatusOr<process::CommandResult> result = process::Run(argv);
+  if (!result.ok()) {
+    return result.status();
+  }
+  if (result->exit_code != 0) {
+    return absl::UnknownError(absl::StrCat("bazel aquery failed (exit ", result->exit_code,
+                                           "): ", result->stderr_data));
+  }
+  return std::move(result->stdout_data);
+}
+
 }  // namespace
 
 absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto,
@@ -153,10 +176,18 @@ absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view a
 }
 
 absl::Status RunRefresh(const FileOptions& options) {
-  const absl::StatusOr<std::string> proto = io::ReadFile(options.aquery_proto_path);
+  absl::StatusOr<std::string> proto;
+  if (!options.aquery_proto_path.empty()) {
+    proto = io::ReadFile(options.aquery_proto_path);
+  } else if (!options.targets.empty()) {
+    proto = RunAquery(options.targets, options.bazel_path);
+  } else {
+    return absl::InvalidArgumentError("refresh needs --aquery_proto or --targets");
+  }
   if (!proto.ok()) {
     return proto.status();
   }
+
   absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id);
   if (!current.ok()) {
     return current.status();

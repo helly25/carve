@@ -26,12 +26,16 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "carve/cli/cli.h"
 #include "carve/refresh/refresh.h"
 
 ABSL_FLAG(std::string, aquery_proto, "",
-          "Path to a serialized aquery ActionGraphContainer "
-          "(from `bazel aquery --output=proto`). Required by `refresh`.");
+          "Path to a pre-captured aquery ActionGraphContainer "
+          "(from `bazel aquery --output=proto`). Overrides --targets when set.");
+ABSL_FLAG(std::string, targets, "//...",
+          "Comma-separated target patterns to aquery when --aquery_proto is not given.");
+ABSL_FLAG(std::string, bazel, "bazel", "Path to the bazel binary used to run aquery.");
 ABSL_FLAG(std::string, output, "compile_commands.json",
           "Path of the compilation database to write.");
 ABSL_FLAG(std::string, directory, "",
@@ -56,16 +60,19 @@ void PrintError(std::string_view message) {
 // Runs the `refresh` subcommand from flags. This is the Layer A path that reads
 // a pre-captured aquery proto; in-process aquery and scan-deps land later.
 absl::Status RunRefreshFromFlags() {
-  const std::string aquery_proto = absl::GetFlag(FLAGS_aquery_proto);
-  if (aquery_proto.empty()) {
-    return absl::InvalidArgumentError("refresh requires --aquery_proto=PATH");
-  }
   std::string directory = absl::GetFlag(FLAGS_directory);
   if (directory.empty()) {
     directory = std::filesystem::current_path().string();
   }
+  std::vector<std::string> targets;
+  const std::string targets_flag = absl::GetFlag(FLAGS_targets);
+  if (!targets_flag.empty()) {
+    targets = absl::StrSplit(targets_flag, ',', absl::SkipEmpty());
+  }
   return carve::refresh::RunRefresh(carve::refresh::FileOptions{
-      .aquery_proto_path = aquery_proto,
+      .aquery_proto_path = absl::GetFlag(FLAGS_aquery_proto),
+      .targets = std::move(targets),
+      .bazel_path = absl::GetFlag(FLAGS_bazel),
       .output_path = absl::GetFlag(FLAGS_output),
       .directory = directory,
       .sidecar_path = absl::GetFlag(FLAGS_sidecar),

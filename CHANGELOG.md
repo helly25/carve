@@ -70,3 +70,9 @@ follows [SemVer](https://semver.org/).
   projects untouched, and the emitted CDB combines all projects. `--project_id`
   flag. Verified end-to-end: refreshing project A then B yields a combined CDB,
   and re-refreshing A does not clobber B.
+- `carve/process`: POSIX subprocess runner (`Run`) capturing stdout/stderr
+  concurrently (poll, no deadlock). mbo-upstream candidate.
+- In-process aquery: `carve refresh --targets=PATTERN [--bazel=PATH]` runs
+  `bazel aquery --output=proto --include_param_files` itself (no pre-captured
+  proto needed); `--aquery_proto` still overrides. `--targets` defaults to
+  `//...`. This is the real Layer A entry point. Dogfooded against this repo.

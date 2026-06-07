@@ -40,19 +40,24 @@ struct Options {
 
 // File-oriented inputs for `RunRefresh`.
 struct FileOptions {
-  std::string aquery_proto_path;  // Serialized ActionGraphContainer to read.
-  std::string output_path;        // compile_commands.json to (atomically) write.
-  std::string directory;          // See Options::directory.
-  std::string sidecar_path;       // Action-records sidecar; empty disables it.
-  std::string project_id;         // See Options::project_id.
+  std::string aquery_proto_path;     // Pre-captured ActionGraphContainer; takes
+                                     // precedence over running aquery.
+  std::vector<std::string> targets;  // Target patterns to aquery when no proto
+                                     // path is given (e.g. {"//..."}).
+  std::string bazel_path;            // bazel binary; empty means "bazel" on PATH.
+  std::string output_path;           // compile_commands.json to (atomically) write.
+  std::string directory;             // See Options::directory.
+  std::string sidecar_path;          // Action-records sidecar; empty disables it.
+  std::string project_id;            // See Options::project_id.
 };
 
-// Reads the aquery proto at `options.aquery_proto_path`, builds the current
-// action records, and — when `options.sidecar_path` is set — merges them
-// against the stored sidecar (reusing cached records for unchanged actions),
-// writes the sidecar back, and emits the compilation database from the merged
-// set. With no sidecar path it emits straight from the current records. Returns
-// a non-OK status if any input cannot be read or any output cannot be written.
+// Obtains the aquery proto — by reading `aquery_proto_path` if set, otherwise by
+// running `bazel aquery` over `targets` — builds the current action records,
+// and (when `sidecar_path` is set) merges them against the stored sidecar
+// (reusing cached records for unchanged actions, scoped to `project_id`), writes
+// the sidecar back, and emits the compilation database from the merged set.
+// Returns a non-OK status if no input source is given, the aquery fails, or any
+// file cannot be read or written.
 [[nodiscard]] absl::Status RunRefresh(const FileOptions& options);
 
 // Builds compilation-database entries from serialized aquery
