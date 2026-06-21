@@ -32,25 +32,21 @@ bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "abseil-cpp", version = "20260107.1")
 bazel_dep(name = "protobuf", version = "35.0")
-bazel_dep(name = "helly25_mbo", version = "0.10.0", repo_name = "com_helly25_mbo")
+bazel_dep(name = "helly25_mbo", version = "0.11.1", repo_name = "com_helly25_mbo")
 
 # Test-only deps.
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
 # C++ toolchain via bazel-contrib/toolchains_llvm (as in the sibling project
-# helly25/mbo), pinned to the latest LLVM 22.1.7 (headers are C++23-clean — LLVM
-# dropped the deprecated std::aligned_union_t). The released toolchains_llvm
-# 1.7.0 predates the 22.x distribution table, so the release is configured
-# locally via the sha256/strip_prefix/urls override (per the toolchains_llvm
-# README; shas from its master toolchain/distributions/github.jsonc). Collapse
-# the override to a plain `llvm_version` once a toolchains_llvm release ships
-# 22.x. macOS-x86_64 is omitted: LLVM ships no macOS-X64 build for 22.1.7.
-# Dev dependency so downstream consumers are not forced onto this clang.
+# helly25/mbo), pinned to LLVM 22.1.8 (headers are C++23-clean). carve/scan_deps
+# links clang's C++ API (libclang-cpp); it gets that from the SAME toolchain
+# download via the `clang_cpp` target the toolchains_llvm distribution repo
+# exposes — one LLVM download, guaranteed ABI match, no separate http_archive.
+# Both the 22.1.8 distribution entries and the `clang_cpp` target currently live
+# only in the sibling toolchains_llvm checkout (see local_path_override below);
+# they are pending upstream + a release, after which the override is dropped for
+# a plain version pin. Dev dependency so consumers are not forced onto this clang.
 bazel_dep(name = "toolchains_llvm", version = "1.7.0", dev_dependency = True)
-
-_LLVM_VERSION = "22.1.7"
-
-_LLVM_RELEASE = "https://github.com/llvm/llvm-project/releases/download/llvmorg-" + _LLVM_VERSION
 
 llvm = use_extension(
     "@toolchains_llvm//toolchain/extensions:llvm.bzl",
@@ -59,42 +55,22 @@ llvm = use_extension(
 )
 llvm.toolchain(
     name = "llvm_toolchain",
-    llvm_version = _LLVM_VERSION,
-    sha256 = {
-        "darwin-aarch64": "4177245188b0a30a6539c96b361dea56f253485756bfd8927a6a59e7301e7806",
-        "linux-aarch64": "118ca2d3ad9da34367e05735317854e7977db45dc4c02a32af58da64c23b8789",
-        "linux-x86_64": "edb0522b41e261819c06ea437d249f9b8acfa413d3805bc9920eec6fb76ff830",
-    },
-    strip_prefix = {
-        "darwin-aarch64": "LLVM-" + _LLVM_VERSION + "-macOS-ARM64",
-        "linux-aarch64": "LLVM-" + _LLVM_VERSION + "-Linux-ARM64",
-        "linux-x86_64": "LLVM-" + _LLVM_VERSION + "-Linux-X64",
-    },
-    urls = {
-        "darwin-aarch64": [_LLVM_RELEASE + "/LLVM-" + _LLVM_VERSION + "-macOS-ARM64.tar.xz"],
-        "linux-aarch64": [_LLVM_RELEASE + "/LLVM-" + _LLVM_VERSION + "-Linux-ARM64.tar.xz"],
-        "linux-x86_64": [_LLVM_RELEASE + "/LLVM-" + _LLVM_VERSION + "-Linux-X64.tar.xz"],
-    },
+    llvm_version = "22.1.8",
 )
-use_repo(llvm, "llvm_toolchain")
+
+# `llvm_toolchain_llvm` is the LLVM distribution repo; //carve/scan_deps depends
+# on its `clang_cpp` target (libclang-cpp + headers) for in-process scanning.
+use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
 
 register_toolchains(
     "@llvm_toolchain//:all",
     dev_dependency = True,
 )
 
-# Prebuilt LLVM/Clang libraries for in-process scan-deps (libclang-cpp +
-# headers). These are the dependency-scanning libs `toolchains_llvm` does NOT
-# expose for linking; we pull the same LLVM release as the toolchain (for ABI
-# match) with a BUILD overlay. Currently darwin-arm64 only (the scan_deps target
-# is gated to that platform while the linkage is proven); other platforms
-# follow. See CARVE_DESIGN.md section 4.2.
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "llvm_libs_darwin_arm64",
-    build_file = "//third_party/llvm:llvm_libs.BUILD",
-    sha256 = "4177245188b0a30a6539c96b361dea56f253485756bfd8927a6a59e7301e7806",
-    strip_prefix = "LLVM-" + _LLVM_VERSION + "-macOS-ARM64",
-    urls = [_LLVM_RELEASE + "/LLVM-" + _LLVM_VERSION + "-macOS-ARM64.tar.xz"],
+# Use the local toolchains_llvm checkout: it carries the LLVM 22.1.8 distribution
+# entries and the `clang_cpp` target consumed by //carve/scan_deps. Drop this for
+# a normal version pin once a toolchains_llvm release ships both.
+local_path_override(
+    module_name = "toolchains_llvm",
+    path = "../toolchains_llvm",
 )

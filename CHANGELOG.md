@@ -99,3 +99,10 @@ follows [SemVer](https://semver.org/).
 - Warning policy (`.bazelrc`): `external_include_paths` so third-party headers
   (e.g. googletest under clang 22) don't trip our first-party `-Werror`; and
   `-fno-rtti` for the `scan_deps` subtree to match LLVM's no-RTTI build.
+- Single LLVM source: drop the separate libs `http_archive` and link scan-deps
+  against `clang_cpp` (libclang-cpp + headers) exposed by the toolchain's own
+  distribution repo — one download, guaranteed ABI match. The `clang_cpp`
+  target is added to `toolchains_llvm`'s `BUILD.llvm_repo.tpl` (pending upstream)
+  and consumed via a `local_path_override` to the sibling checkout until a
+  release ships it. Bump LLVM 22.1.7 -> 22.1.8 and helly25_mbo 0.10.0 -> 0.11.1.
+- Pin the macOS deployment target to 11.0 so libc++ exposes `std::filesystem`.

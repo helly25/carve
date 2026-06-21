@@ -32,7 +32,7 @@ cc_library(
     implementation_deps = [
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
-        "@llvm_libs_darwin_arm64//:dependency_scanning",
+        "@llvm_toolchain_llvm//:clang_cpp",
     ],
     target_compatible_with = _LLVM_PLATFORM,
     visibility = ["//carve:__subpackages__"],
