@@ -63,9 +63,8 @@ TEST(DeBazelTest, TrailingValuelessFlagWithValueDoesNotConsumePastEnd) {
 
 TEST(DeBazelTest, DropsMultipleQuirksTogether) {
   const std::vector<std::string> argv = {
-      "clang", "-fno-canonical-system-headers", "--gcc-toolchain=/opt/gcc",
-      "-c",    "a.cc",                          "-gcc-toolchain",
-      "/x",    "-o",                            "a.o"};
+      "clang", "-fno-canonical-system-headers", "--gcc-toolchain=/opt/gcc", "-c", "a.cc", "-gcc-toolchain", "/x", "-o",
+      "a.o"};
   EXPECT_THAT(DeBazel(argv), ElementsAre("clang", "-c", "a.cc", "-o", "a.o"));
 }
 

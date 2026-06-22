@@ -37,8 +37,7 @@ namespace {
 // avoid collisions between concurrent writers within a process.
 std::filesystem::path TempSibling(const std::filesystem::path& path) {
   static std::atomic<std::uint64_t> counter{0};
-  const auto stamp =
-      static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
+  const auto stamp = static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
   const std::uint64_t seq = counter.fetch_add(1, std::memory_order_relaxed);
   std::filesystem::path tmp = path;
   tmp += absl::StrCat(".carve-tmp-", stamp, "-", seq);
@@ -53,8 +52,7 @@ absl::Status WriteAtomically(const std::filesystem::path& path, std::string_view
   if (!parent.empty()) {
     std::filesystem::create_directories(parent, ec);
     if (ec) {
-      return absl::UnknownError(
-          absl::StrCat("failed to create directory '", parent.string(), "': ", ec.message()));
+      return absl::UnknownError(absl::StrCat("failed to create directory '", parent.string(), "': ", ec.message()));
     }
   }
 
@@ -75,8 +73,7 @@ absl::Status WriteAtomically(const std::filesystem::path& path, std::string_view
   std::filesystem::rename(tmp, path, ec);
   if (ec) {
     std::filesystem::remove(tmp, ec);
-    return absl::UnknownError(
-        absl::StrCat("failed to rename '", tmp.string(), "' to '", path.string(), "'"));
+    return absl::UnknownError(absl::StrCat("failed to rename '", tmp.string(), "' to '", path.string(), "'"));
   }
   return absl::OkStatus();
 }

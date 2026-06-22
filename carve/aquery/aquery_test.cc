@@ -66,8 +66,7 @@ TEST(ParseCompileActionsTest, ExtractsCompileActionAndResolvesOutputPath) {
   EXPECT_THAT(
       ParseCompileActions(container.SerializeAsString()),
       IsOkAndHolds(ElementsAre(AllOf(
-          Field(&CompileAction::action_key, Eq("k1")),
-          Field(&CompileAction::mnemonic, Eq("CppCompile")),
+          Field(&CompileAction::action_key, Eq("k1")), Field(&CompileAction::mnemonic, Eq("CppCompile")),
           Field(&CompileAction::arguments, ElementsAre("clang", "-c", "src/main.cc")),
           Field(&CompileAction::primary_output, Eq("src/main.o"))))));
 }
@@ -86,9 +85,9 @@ TEST(ParseCompileActionsTest, ExpandsEmbeddedParamFile) {
   param_file->add_arguments("-o");
   param_file->add_arguments("a.o");
 
-  EXPECT_THAT(ParseCompileActions(container.SerializeAsString()),
-              IsOkAndHolds(ElementsAre(Field(&CompileAction::arguments,
-                                             ElementsAre("clang", "-c", "src/a.cc", "-o", "a.o")))));
+  EXPECT_THAT(
+      ParseCompileActions(container.SerializeAsString()),
+      IsOkAndHolds(ElementsAre(Field(&CompileAction::arguments, ElementsAre("clang", "-c", "src/a.cc", "-o", "a.o")))));
 }
 
 TEST(ParseCompileActionsTest, UnmatchedResponseFileTokenIsKeptVerbatim) {
@@ -101,9 +100,9 @@ TEST(ParseCompileActionsTest, UnmatchedResponseFileTokenIsKeptVerbatim) {
   compile->add_arguments("clang");
   compile->add_arguments("@bazel-out/k1.params");
 
-  EXPECT_THAT(ParseCompileActions(container.SerializeAsString()),
-              IsOkAndHolds(ElementsAre(
-                  Field(&CompileAction::arguments, ElementsAre("clang", "@bazel-out/k1.params")))));
+  EXPECT_THAT(
+      ParseCompileActions(container.SerializeAsString()),
+      IsOkAndHolds(ElementsAre(Field(&CompileAction::arguments, ElementsAre("clang", "@bazel-out/k1.params")))));
 }
 
 TEST(ParseCompileActionsTest, UnknownPrimaryOutputLeavesPathEmpty) {
@@ -113,8 +112,9 @@ TEST(ParseCompileActionsTest, UnknownPrimaryOutputLeavesPathEmpty) {
   compile->set_action_key("k2");
   compile->set_primary_output_id(999);  // No matching artifact.
 
-  EXPECT_THAT(ParseCompileActions(container.SerializeAsString()),
-              IsOkAndHolds(ElementsAre(Field(&CompileAction::primary_output, IsEmpty()))));
+  EXPECT_THAT(
+      ParseCompileActions(container.SerializeAsString()),
+      IsOkAndHolds(ElementsAre(Field(&CompileAction::primary_output, IsEmpty()))));
 }
 
 }  // namespace

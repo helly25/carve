@@ -34,30 +34,31 @@ using ::testing::Field;
 using ::testing::SizeIs;
 
 TEST(RunTest, CapturesStdoutAndZeroExit) {
-  EXPECT_THAT(::carve::process::Run(std::vector<std::string>{"/bin/echo", "hello"}),
-              IsOkAndHolds(AllOf(Field(&CommandResult::exit_code, Eq(0)),
-                                 Field(&CommandResult::stdout_data, Eq("hello\n")))));
+  EXPECT_THAT(
+      ::carve::process::Run(std::vector<std::string>{"/bin/echo", "hello"}),
+      IsOkAndHolds(AllOf(Field(&CommandResult::exit_code, Eq(0)), Field(&CommandResult::stdout_data, Eq("hello\n")))));
 }
 
 TEST(RunTest, CapturesStderrAndNonZeroExitSeparately) {
   EXPECT_THAT(
       ::carve::process::Run(std::vector<std::string>{"/bin/sh", "-c", "printf oops >&2; exit 3"}),
-      IsOkAndHolds(AllOf(Field(&CommandResult::exit_code, Eq(3)),
-                         Field(&CommandResult::stdout_data, Eq("")),
-                         Field(&CommandResult::stderr_data, Eq("oops")))));
+      IsOkAndHolds(AllOf(
+          Field(&CommandResult::exit_code, Eq(3)), Field(&CommandResult::stdout_data, Eq("")),
+          Field(&CommandResult::stderr_data, Eq("oops")))));
 }
 
 TEST(RunTest, MissingProgramReportsExit127) {
-  EXPECT_THAT(::carve::process::Run(std::vector<std::string>{"/no/such/program/carve"}),
-              IsOkAndHolds(Field(&CommandResult::exit_code, Eq(127))));
+  EXPECT_THAT(
+      ::carve::process::Run(std::vector<std::string>{"/no/such/program/carve"}),
+      IsOkAndHolds(Field(&CommandResult::exit_code, Eq(127))));
 }
 
 TEST(RunTest, LargeOutputDoesNotDeadlock) {
   // 200000 'x' bytes exceeds a pipe buffer, so concurrent draining is required.
-  EXPECT_THAT(::carve::process::Run(std::vector<std::string>{"/bin/sh", "-c",
-                                           "yes x | head -c 200000"}),
-              IsOkAndHolds(AllOf(Field(&CommandResult::exit_code, Eq(0)),
-                                 Field(&CommandResult::stdout_data, SizeIs(200000)))));
+  EXPECT_THAT(
+      ::carve::process::Run(std::vector<std::string>{"/bin/sh", "-c", "yes x | head -c 200000"}),
+      IsOkAndHolds(
+          AllOf(Field(&CommandResult::exit_code, Eq(0)), Field(&CommandResult::stdout_data, SizeIs(200'000)))));
 }
 
 TEST(RunTest, EmptyArgvIsInvalidArgument) {

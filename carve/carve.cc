@@ -29,21 +29,27 @@
 #include "carve/cli/cli.h"
 #include "carve/refresh/refresh.h"
 
-ABSL_FLAG(std::string, aquery_proto, "",
-          "Path to a pre-captured aquery ActionGraphContainer "
-          "(from `bazel aquery --output=proto`). Overrides --targets when set.");
-ABSL_FLAG(std::string, targets, "//...",
-          "Comma-separated target patterns to aquery when --aquery_proto is not given.");
+ABSL_FLAG(
+    std::string,
+    aquery_proto,
+    "",
+    "Path to a pre-captured aquery ActionGraphContainer "
+    "(from `bazel aquery --output=proto`). Overrides --targets when set.");
+ABSL_FLAG(std::string, targets, "//...", "Comma-separated target patterns to aquery when --aquery_proto is not given.");
 ABSL_FLAG(std::string, bazel, "bazel", "Path to the bazel binary used to run aquery.");
-ABSL_FLAG(std::string, output, "compile_commands.json",
-          "Path of the compilation database to write.");
-ABSL_FLAG(std::string, directory, "",
-          "Working directory recorded on each entry; defaults to the current directory.");
-ABSL_FLAG(std::string, sidecar, ".carve-cache/entries-by-actionkey.binpb",
-          "Action-records sidecar path for incremental refresh; empty disables it.");
-ABSL_FLAG(std::string, project_id, "",
-          "Project identifier; scopes the sidecar merge so projects sharing a "
-          "compilation database do not clobber each other.");
+ABSL_FLAG(std::string, output, "compile_commands.json", "Path of the compilation database to write.");
+ABSL_FLAG(std::string, directory, "", "Working directory recorded on each entry; defaults to the current directory.");
+ABSL_FLAG(
+    std::string,
+    sidecar,
+    ".carve-cache/entries-by-actionkey.binpb",
+    "Action-records sidecar path for incremental refresh; empty disables it.");
+ABSL_FLAG(
+    std::string,
+    project_id,
+    "",
+    "Project identifier; scopes the sidecar merge so projects sharing a "
+    "compilation database do not clobber each other.");
 
 namespace {
 
@@ -64,15 +70,16 @@ absl::Status RunRefreshFromFlags() {
   if (!targets_flag.empty()) {
     targets = absl::StrSplit(targets_flag, ',', absl::SkipEmpty());
   }
-  return carve::refresh::RunRefresh(carve::refresh::FileOptions{
-      .aquery_proto_path = absl::GetFlag(FLAGS_aquery_proto),
-      .targets = std::move(targets),
-      .bazel_path = absl::GetFlag(FLAGS_bazel),
-      .output_path = absl::GetFlag(FLAGS_output),
-      .directory = absl::GetFlag(FLAGS_directory),
-      .sidecar_path = absl::GetFlag(FLAGS_sidecar),
-      .project_id = absl::GetFlag(FLAGS_project_id),
-  });
+  return carve::refresh::RunRefresh(
+      carve::refresh::FileOptions{
+          .aquery_proto_path = absl::GetFlag(FLAGS_aquery_proto),
+          .targets = std::move(targets),
+          .bazel_path = absl::GetFlag(FLAGS_bazel),
+          .output_path = absl::GetFlag(FLAGS_output),
+          .directory = absl::GetFlag(FLAGS_directory),
+          .sidecar_path = absl::GetFlag(FLAGS_sidecar),
+          .project_id = absl::GetFlag(FLAGS_project_id),
+      });
 }
 
 int RealMain(int argc, char** argv) {
@@ -103,12 +110,8 @@ int RealMain(int argc, char** argv) {
   // to the dispatch stub until their modules land.
   absl::Status status;
   switch (*cmd) {
-    case carve::cli::Subcommand::kRefresh:
-      status = RunRefreshFromFlags();
-      break;
-    default:
-      status = carve::cli::Dispatch(*cmd, args);
-      break;
+    case carve::cli::Subcommand::kRefresh: status = RunRefreshFromFlags(); break;
+    default: status = carve::cli::Dispatch(*cmd, args); break;
   }
   if (!status.ok()) {
     PrintError(status.message());
@@ -119,4 +122,6 @@ int RealMain(int argc, char** argv) {
 
 }  // namespace
 
-int main(int argc, char** argv) { return RealMain(argc, argv); }
+int main(int argc, char** argv) {
+  return RealMain(argc, argv);
+}

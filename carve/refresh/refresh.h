@@ -71,7 +71,8 @@ struct FileOptions {
 // `//external` symlink choreography, compiler-wrapper resolution) are still to
 // come; this produces the correct entry shape with absolute source paths.
 [[nodiscard]] absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(
-    std::string_view aquery_proto, const Options& options);
+    std::string_view aquery_proto,
+    const Options& options);
 
 }  // namespace carve::refresh
 

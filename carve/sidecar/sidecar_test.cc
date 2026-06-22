@@ -45,44 +45,40 @@ ActionRecords MakeRecords(const std::vector<std::string>& keys) {
 }
 
 TEST(LoadTest, MissingFileYieldsEmptyRecords) {
-  EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"),
-              IsOkAndHolds(Property(&ActionRecords::records_size, Eq(0))));
+  EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"), IsOkAndHolds(Property(&ActionRecords::records_size, Eq(0))));
 }
 
 TEST(SaveLoadTest, RoundTripsContent) {
   ActionRecords records = MakeRecords({"k1"});
   records.mutable_records(0)->add_sources("a.cc");
   records.mutable_records(0)->add_command("clang");
-  const std::filesystem::path path =
-      std::filesystem::path(::testing::TempDir()) / "carve_sidecar" / "entries.binpb";
+  const std::filesystem::path path = std::filesystem::path(::testing::TempDir()) / "carve_sidecar" / "entries.binpb";
   std::filesystem::remove_all(path.parent_path());
 
   ASSERT_THAT(Save(path, records), IsOk());
-  EXPECT_THAT(Load(path),
-              IsOkAndHolds(Property(&ActionRecords::SerializeAsString,
-                                    Eq(records.SerializeAsString()))));
+  EXPECT_THAT(Load(path), IsOkAndHolds(Property(&ActionRecords::SerializeAsString, Eq(records.SerializeAsString()))));
 }
 
 TEST(DiffActionKeysTest, PartitionsAddedRemovedCommon) {
   const ActionRecords stored = MakeRecords({"k1", "k2"});
   const std::vector<std::string> current = {"k2", "k3"};
-  EXPECT_THAT(DiffActionKeys(stored, current),
-              AllOf(Field(&KeyDiff::added, ElementsAre("k3")),
-                    Field(&KeyDiff::removed, ElementsAre("k1")),
-                    Field(&KeyDiff::common, ElementsAre("k2"))));
+  EXPECT_THAT(
+      DiffActionKeys(stored, current),
+      AllOf(
+          Field(&KeyDiff::added, ElementsAre("k3")), Field(&KeyDiff::removed, ElementsAre("k1")),
+          Field(&KeyDiff::common, ElementsAre("k2"))));
 }
 
 TEST(DiffActionKeysTest, DeduplicatesAndSortsCurrentKeys) {
   const ActionRecords stored = MakeRecords({});
   const std::vector<std::string> current = {"b", "a", "b"};
-  EXPECT_THAT(DiffActionKeys(stored, current),
-              AllOf(Field(&KeyDiff::added, ElementsAre("a", "b")),
-                    Field(&KeyDiff::removed, IsEmpty()),
-                    Field(&KeyDiff::common, IsEmpty())));
+  EXPECT_THAT(
+      DiffActionKeys(stored, current), AllOf(
+                                           Field(&KeyDiff::added, ElementsAre("a", "b")),
+                                           Field(&KeyDiff::removed, IsEmpty()), Field(&KeyDiff::common, IsEmpty())));
 }
 
-ActionRecord* AddRecord(ActionRecords& records, std::string_view key,
-                        const std::vector<std::string>& command) {
+ActionRecord* AddRecord(ActionRecords& records, std::string_view key, const std::vector<std::string>& command) {
   ActionRecord* record = records.add_records();
   record->set_action_key(std::string(key));
   for (const std::string& arg : command) {
@@ -140,8 +136,7 @@ TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
   AddRecord(expected, "k1", {"clang", "a2"})->set_project_id("A");
   AddRecord(expected, "k2", {"clang", "b"})->set_project_id("B");
 
-  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(),
-              Eq(expected.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(), Eq(expected.SerializeAsString()));
 }
 
 TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) {
@@ -158,8 +153,7 @@ TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) 
   AddRecord(expected, "k1", {"clang"})->set_project_id("A");
   AddRecord(expected, "k3", {"clang"})->set_project_id("B");
 
-  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(),
-              Eq(expected.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(), Eq(expected.SerializeAsString()));
 }
 
 }  // namespace
