@@ -30,9 +30,18 @@ common --features=layering_check,parse_headers
 # Tell googletest to use Abseil for backtraces.
 common --define absl=1
 
-# C++23 by default. Carve targets clang 20.1+ and the bundled clang via
-# toolchains_llvm is the supported configuration.
+# C++23 for our own code. The hermetic clang from the `llvm` module (built with a
+# from-source libc++) is the supported configuration.
 common --cxxopt=-std=c++23 --host_cxxopt=-std=c++23
+
+# LLVM is a C++17 codebase: the @llvm-project overlay's own sources do not compile
+# under -std=c++23 (their headers rely on transitive includes that modern libc++
+# drops at C++23). Build the overlay's C++ sources at C++17; they link the SAME
+# libc++ as our C++23 code, so there is no ABI mismatch — only one C++ standard
+# per translation unit. Restricted to C++ extensions so LLVM's C sources (e.g.
+# BLAKE3 NEON) are not handed an invalid `-std=c++17`.
+common --per_file_copt=llvm-project.*\.(cpp|cc|cxx)$@-std=c++17
+common --host_per_file_copt=llvm-project.*\.(cpp|cc|cxx)$@-std=c++17
 
 # Treat warnings as errors for first-party code only, scoped by a positive match
 # on our own source tree. Third-party dependencies (e.g. re2 compiled against a

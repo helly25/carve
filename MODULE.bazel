@@ -37,40 +37,30 @@ bazel_dep(name = "helly25_mbo", version = "0.11.1", repo_name = "com_helly25_mbo
 # Test-only deps.
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
-# C++ toolchain via bazel-contrib/toolchains_llvm (as in the sibling project
-# helly25/mbo), pinned to LLVM 22.1.8 (headers are C++23-clean). carve/scan_deps
-# links clang's C++ API (libclang-cpp); it gets that from the SAME toolchain
-# download via the `clang_cpp` target the toolchains_llvm distribution repo
-# exposes — one LLVM download, guaranteed ABI match, no separate http_archive.
-# Both the 22.1.8 distribution entries and the `clang_cpp` target currently live
-# only in the sibling toolchains_llvm checkout (see local_path_override below);
-# they are pending upstream + a release, after which the override is dropped for
-# a plain version pin. Dev dependency so consumers are not forced onto this clang.
-bazel_dep(name = "toolchains_llvm", version = "1.7.0", dev_dependency = True)
+# C++ toolchain AND linkable clang libraries from hermeticbuild/hermetic-llvm
+# (the `llvm` BCR module), pinned to LLVM 22.1.7. One ecosystem provides both:
+#   - a fully hermetic clang cross-compilation toolchain whose C++ standard
+#     library (libc++) is built FROM SOURCE on every platform, registered below;
+#   - the @llvm-project Bazel overlay, from which //carve/scan_deps links the
+#     clang dependency-scanning library (@llvm-project//clang:tooling).
+# The overlay is compiled with this toolchain, so the dependency-scanning libs
+# and our own code share ONE libc++ — no shared-library ABI boundary and no
+# libstdc++-on-Linux coupling (the defect of wrapping upstream prebuilt LLVM).
+# Our code is C++23; LLVM's own sources are a C++17 codebase and compile at C++17
+# (see the scoped per_file_copt in .bazelrc) while linking the same libc++.
+bazel_dep(name = "llvm", version = "0.8.9")
 
-llvm = use_extension(
-    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
-    "llvm",
-    dev_dependency = True,
-)
-llvm.toolchain(
-    name = "llvm_toolchain",
-    llvm_version = "22.1.8",
-)
-
-# `llvm_toolchain_llvm` is the LLVM distribution repo; //carve/scan_deps depends
-# on its `clang_cpp` target (libclang-cpp + headers) for in-process scanning.
-use_repo(llvm, "llvm_toolchain", "llvm_toolchain_llvm")
-
+# Register the hermetic clang toolchain. Dev dependency so consumers compile
+# carve with their own toolchain (the @llvm-project overlay still travels as a
+# normal dep and is built by whatever toolchain is active, keeping libc++
+# consistent between scan_deps and the LLVM libs either way).
 register_toolchains(
-    "@llvm_toolchain//:all",
+    "@llvm//toolchain:all",
     dev_dependency = True,
 )
 
-# Use the local toolchains_llvm checkout: it carries the LLVM 22.1.8 distribution
-# entries and the `clang_cpp` target consumed by //carve/scan_deps. Drop this for
-# a normal version pin once a toolchains_llvm release ships both.
-local_path_override(
-    module_name = "toolchains_llvm",
-    path = "../toolchains_llvm",
-)
+# The @llvm-project overlay (clang/LLVM libraries built from source). NOT a dev
+# dependency: //carve/scan_deps is part of the shipped carve binary, and the
+# `llvm` extension rejects dev-only usage.
+llvm_overlay = use_extension("@llvm//extensions:llvm.bzl", "llvm")
+use_repo(llvm_overlay, "llvm-project")
