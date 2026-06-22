@@ -34,13 +34,27 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: bazel-contrib/setup-bazel@0.14.0
+      # bazelisk launches the Bazel release pinned in .bazelversion.
+      - uses: bazelbuild/setup-bazelisk@v3
+      # Persist Bazel's repository cache (downloaded external deps) and disk cache
+      # (compiled action outputs) so each run reuses prior work instead of fetching
+      # and rebuilding from scratch -- critical now that //carve/scan_deps builds
+      # LLVM/Clang from source (~14 min cold). MODULE.bazel.lock is gitignored, so
+      # the key hashes MODULE.bazel + .bazelversion; the github.sha suffix saves a
+      # fresh entry per run and restore-keys fall back to the newest prior cache
+      # for this OS (busted when MODULE.bazel or the Bazel version changes).
+      - name: Mount Bazel caches
+        uses: actions/cache@v4
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
-          repository-cache: true
+          path: |
+            ~/.cache/bazel-disk
+            ~/.cache/bazel-repo
+          key: bazel-${{ matrix.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-${{ matrix.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-
+            bazel-${{ matrix.os }}-
       - name: bazel test
-        run: bazel test --config=clang //...
+        run: bazel test --config=clang //... --disk_cache=$HOME/.cache/bazel-disk --repository_cache=$HOME/.cache/bazel-repo
 
   # Aggregating gate: a single required check that fails if any job above did
   # not succeed (mirrors the helly25 house pattern in mbo/bzl).
