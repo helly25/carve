@@ -108,15 +108,15 @@ Use `clang::tooling::dependencies::DependencyScanningService` and `DependencySca
 
 Expected speedup over forking `clang -M` per action: 5x to 10x on large repos based on public benchmarks of `clang-scan-deps`.
 
-#### Linkage reality (highest-risk dependency in the project)
+#### Linkage reality (resolved)
 
-`toolchains_llvm` provides a *compilation toolchain* — clang to compile **with**. It does **not** ship `libclangDependencyScanning` (or any LLVM/Clang library + headers) to link **against**. The earlier "pulled via toolchains_llvm or direct http_archive" framing was wrong on the first half. Linking `DependencyScanningTool` requires one of:
+`toolchains_llvm` provides a *compilation toolchain* — clang to compile **with**. It does **not** ship `libclangDependencyScanning` (or any LLVM/Clang library + headers) to link **against**. Linking `DependencyScanningTool` required choosing one of:
 
-1. **Build llvm-project from source under Bazel.** Hermetic and correct, but a large/slow build that contradicts the "5-minute clone-to-working" goal in section 7.
-2. **Hermetic prebuilt LLVM libs** (the `hermetic-llvm`-style approach: a repo rule exposing `cc_library` targets for the needed Clang/LLVM static libs). Most promising; adds a dependency we must name and pin.
+1. **Build llvm-project from source under Bazel.** Hermetic and correct, but a large/slow build that strains the "5-minute clone-to-working" goal in section 7.
+2. **Hermetic prebuilt LLVM libs** (a repo rule exposing `cc_library` targets for the needed Clang/LLVM static libs). Adds a dependency we must name and pin, but inherits whatever STL the prebuilt was built with — on Linux that is libstdc++, which a libc++ tool cannot link against.
 3. **Local-install bridge** (`bazel-llvm-bridge`, `@local_llvm//:llvm_headers`). Non-hermetic; breaks "works immediately after clone." Acceptable only as a dev fallback.
 
-This is the single highest-risk integration in the project. It must be a **month-1 spike**: prove that `DependencyScanningTool` links cleanly into a `cc_binary` without dragging in the full clang frontend, and decide between options 1/2 before committing the phasing. `MODULE.bazel` currently declares no LLVM library dependency; that gap is intentional until the spike resolves it.
+**Decision (implemented).** Option 1, via [hermeticbuild/hermetic-llvm](https://github.com/hermeticbuild/hermetic-llvm) — the `llvm` BCR module — which makes option 1 ergonomic: it provides *both* a hermetic clang toolchain (libc++ built from source on every platform) and the `@llvm-project` Bazel overlay. `//carve/scan_deps` links `@llvm-project//clang:tooling` (which pulls `:dependency_scanning`), built from source with the **same libc++** as our own code. That dissolves the ABI question: no shared-library boundary, no libstdc++-on-Linux coupling. An earlier iteration took a prebuilt path (a `clang_cpp` target added to `toolchains_llvm` exposing `libclang-cpp`); it worked on macOS but inherited the prebuilt's STL and so could not stay libc++ on Linux — hence the move to source-built libs. Cost: a ~12-min cold build of the LLVM/Clang subset, cacheable locally and remotely. carve's own code stays C++23; LLVM's own sources build at their native C++17 under one shared libc++ (scoped in `.bazelrc`).
 
 #### Decoupling: scan-deps is not required for a working CDB
 
@@ -269,13 +269,15 @@ bazel_dep(name = "googletest", version = "1.15.2")
 bazel_dep(name = "protobuf", version = "29.0")
 bazel_dep(name = "rules_cc", version = "0.0.17")
 bazel_dep(name = "rules_proto", version = "7.0.2")
-bazel_dep(name = "toolchains_llvm", version = "1.3.0")        # clang 20.1+ toolchain; mbo supports this mode
 
-# LLVM headers/libs for scan-deps. NOT available via toolchains_llvm (that is a
-# compile toolchain, not linkable libs). Requires either an llvm-project source
-# build under Bazel or a hermetic prebuilt-libs repo exposing the needed Clang
-# static libs (libclangDependencyScanning + transitive). Decided by the month-1
-# spike; see section 4.2 "Linkage reality". Deliberately absent until then.
+# Hermetic clang toolchain AND linkable LLVM/Clang libraries from one ecosystem
+# (hermeticbuild/hermetic-llvm). The @llvm-project overlay it exposes is built
+# from source with the same libc++ as our code; //carve/scan_deps links
+# `@llvm-project//clang:tooling`. See section 4.2 "Linkage reality".
+bazel_dep(name = "llvm", version = "0.8.9")
+register_toolchains("@llvm//toolchain:all", dev_dependency = True)
+llvm_overlay = use_extension("@llvm//extensions:llvm.bzl", "llvm")
+use_repo(llvm_overlay, "llvm-project")
 ```
 
 mbo brings Abseil transitively, so we do not list Abseil separately. If a future mbo release stops re-exporting Abseil, add a direct `bazel_dep` then. Versions above are placeholders pinned at project bootstrap; lock to current-at-start releases.
@@ -286,7 +288,7 @@ C++ build:
 - Per-module `cc_library` targets `//carve/<module>:<module>_cc`, using
   `implementation_deps` vs `deps` per the house convention (see [RULES.md](RULES.md)).
 - Linked statically where feasible. LLVM libs typically static.
-- Compiled with `-std=c++23`, `-stdlib=libc++` (under toolchains_llvm), `-Wall -Wextra -Werror`, `-Wpedantic`.
+- Compiled with `-std=c++23`, `-stdlib=libc++` (under the hermetic-llvm clang toolchain), `-Wall -Wextra -Werror`, `-Wpedantic`. LLVM's own sources build at C++17 (scoped in `.bazelrc`).
 - Sanitizer presets: `--config=asan`, `--config=tsan`, `--config=ubsan` for tests.
 
 Test layout:
@@ -374,7 +376,7 @@ Concentric rings:
 ## 10. Open questions
 
 - **Aquery proto vendoring (decided, not open).** `analysis_v2.proto` is not published as a bzlmod module; it lives in `bazelbuild/bazel/src/main/protobuf` and its `import "build.proto"` pulls in a further chain (`stardoc_output.proto`, ...). carve consumes only the aquery action graph, never cquery, so we vendor a **trimmed, self-contained** copy at `carve/third_party/bazel/analysis_v2.proto`: the `ConfiguredTarget`/`CqueryResult` messages and the `build.proto` import they need are removed, every other message is byte-for-byte upstream. This avoids vendoring the whole proto chain. **Version-couple the vendored copy to our Bazel pin** (note the v1→v2 id type change, `string`→`uint64`, gated by `--incompatible_proto_output_v2`) and re-vendor on every Bazel bump — a recurring maintenance task, not a one-time setup.
-- **DependencyScanningService linkage (highest-risk; month-1 spike).** Resolved in section 4.2 "Linkage reality": `toolchains_llvm` does not provide linkable LLVM libs. The open part is *which* strategy (source build vs. hermetic prebuilt libs) and whether `DependencyScanningTool` links without the full frontend. Until the spike lands, Layer A ships without in-process scan-deps (see the decoupling note in section 4.2).
+- **DependencyScanningService linkage (resolved).** See section 4.2 "Linkage reality": carve links `@llvm-project//clang:tooling` (which pulls `:dependency_scanning`) built from source via the hermetic-llvm `llvm` module, with the same libc++ as our code. `DependencyScanningTool` links cleanly — validated on macOS and Linux in CI. Cost is a ~12-min cold compile of the LLVM/Clang subset, cacheable.
 - **Modules support timing.** Phase the modules-aware path in later. Scan-deps already handles modules; we just need a flag to expose it. Defer until a real consumer asks.
 - **Remote execution.** Layer C with remote cache is the long-tail goal. Layer A on a developer laptop is the immediate goal. Make sure Layer A does not preclude Layer C in the schema.
 - **Symlink handling.** The current tool's `//external` link choreography (see upstream [refresh.template.py](https://github.com/hedronvision/bazel-compile-commands-extractor/blob/main/refresh.template.py), the external-symlink section) is subtle. Rederive carefully on Windows where junctions differ from symlinks. Candidate for an mbo utility if not already present.
@@ -387,7 +389,7 @@ Concrete sequence for the first six months:
 
 | Month | Milestone |
 | --- | --- |
-| 1 | Repo bootstrap, MODULE.bazel, toolchain pin, hello-world `carve` binary, GTest wired up. **LLVM-libs linkage spike** (section 4.2): prove `DependencyScanningTool` links into a `cc_binary`, pick source-build vs. hermetic-prebuilt. This gates months 3–4. |
+| 1 | Repo bootstrap, MODULE.bazel, toolchain pin, hello-world `carve` binary, GTest wired up. **LLVM-libs linkage spike** (section 4.2): prove `DependencyScanningTool` links into a `cc_binary`. *Resolved — source-built via hermetic-llvm (`@llvm-project//clang:tooling`).* This gates months 3–4. |
 | 2 | `aquery` module + vendored proto parsing; basic `command` module with first three quirks (incl. execroot canonicalization); CDB writer. **Layer A emits a working CDB straight from aquery, no scan-deps yet.** Stand up a crude differential harness against Hedron on this repo. |
 | 3 | Sidecar persistence, action-keyed diff, scan-deps integration (single-threaded) — assuming the month-1 spike succeeded; otherwise carry the no-scan-deps Layer A and reschedule. |
 | 4 | Full quirk inventory ported, scan-deps parallelized, merge mode, Layer A feature-complete |

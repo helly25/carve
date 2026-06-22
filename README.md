@@ -45,8 +45,9 @@ bazel build //:compile_commands --@com_helly25_carve//rules:use_aspect=True
 ## Build requirements
 
 - Bazel 9.1+
-- Clang 20.1+ (clang 22.x recommended, pinned via
-  [toolchains_llvm](https://github.com/bazel-contrib/toolchains_llvm))
+- Clang 22.x (LLVM 22.1.7), pinned via the hermetic
+  [llvm](https://github.com/hermeticbuild/hermetic-llvm) toolchain — which also
+  supplies the LLVM libraries `scan_deps` links, built from source
 - Apple Silicon / x86\_64 Linux supported; Windows planned
 
 ## License
