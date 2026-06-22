@@ -17,13 +17,14 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 package(default_visibility = ["//visibility:private"])
 
-# Gated to darwin-arm64 while the LLVM-libs linkage is proven on one platform;
-# other platforms follow once their prebuilt archives are wired (CARVE_DESIGN.md
-# section 4.2). On other platforms these targets are skipped as incompatible.
-_LLVM_PLATFORM = [
-    "@platforms//os:macos",
-    "@platforms//cpu:arm64",
-]
+# scan_deps links the LLVM/Clang dependency-scanning libraries, built from source
+# via the hermetic-llvm @llvm-project overlay. Supported on macOS and Linux (the
+# two CI platforms); marked incompatible elsewhere so those targets are skipped.
+_LLVM_PLATFORM = select({
+    "@platforms//os:linux": [],
+    "@platforms//os:macos": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
 
 cc_library(
     name = "scan_deps_cc",
