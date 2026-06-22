@@ -34,14 +34,17 @@ common --define absl=1
 # from-source libc++) is the supported configuration.
 common --cxxopt=-std=c++23 --host_cxxopt=-std=c++23
 
-# LLVM is a C++17 codebase: the @llvm-project overlay's own sources do not compile
-# under -std=c++23 (their headers rely on transitive includes that modern libc++
-# drops at C++23). Build the overlay's C++ sources at C++17; they link the SAME
-# libc++ as our C++23 code, so there is no ABI mismatch — only one C++ standard
-# per translation unit. Restricted to C++ extensions so LLVM's C sources (e.g.
-# BLAKE3 NEON) are not handed an invalid `-std=c++17`.
-common --per_file_copt=llvm-project.*\.(cpp|cc|cxx)$@-std=c++17
-common --host_per_file_copt=llvm-project.*\.(cpp|cc|cxx)$@-std=c++17
+# The LLVM *compiler* libraries (llvm/, clang/) are a C++17 codebase: their
+# sources do not compile under -std=c++23 (they rely on transitive includes that
+# modern libc++ drops at C++23). Build only those at C++17; they link the SAME
+# libc++ as our C++23 code, so each TU is single-standard over one libc++.
+# Scoped to the llvm/ and clang/ packages only -- NOT libc++/libc++abi/libunwind/
+# compiler-rt: on Linux the toolchain builds those runtimes from source and they
+# need their own, newer standard (e.g. libcxx/src uses std::ranges, which is
+# C++20+), so they stay on the global -std=c++23. C++ extensions only, so LLVM's
+# C sources (e.g. BLAKE3 NEON) are not handed an invalid `-std=c++17`.
+common --per_file_copt=llvm-project[/:]+(llvm|clang)[/:].*\.(cpp|cc|cxx)$@-std=c++17
+common --host_per_file_copt=llvm-project[/:]+(llvm|clang)[/:].*\.(cpp|cc|cxx)$@-std=c++17
 
 # Treat warnings as errors for first-party code only, scoped by a positive match
 # on our own source tree. Third-party dependencies (e.g. re2 compiled against a

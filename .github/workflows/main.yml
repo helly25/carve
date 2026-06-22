@@ -54,7 +54,7 @@ jobs:
             bazel-${{ matrix.os }}-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-
             bazel-${{ matrix.os }}-
       - name: bazel test
-        run: bazel test --config=clang //... --disk_cache=$HOME/.cache/bazel-disk --repository_cache=$HOME/.cache/bazel-repo
+        run: bazel test --config=clang //... --disk_cache="$HOME/.cache/bazel-disk" --repository_cache="$HOME/.cache/bazel-repo"
 
   # Aggregating gate: a single required check that fails if any job above did
   # not succeed (mirrors the helly25 house pattern in mbo/bzl).
