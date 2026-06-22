@@ -32,7 +32,11 @@ cc_library(
     implementation_deps = [
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
-        "@llvm_toolchain_llvm//:clang_cpp",
+        # Clang dependency-scanning libraries, built from source via the
+        # @llvm-project overlay (the `llvm` module). `:tooling` provides
+        # DependencyScanningTool.h and depends on `:dependency_scanning`
+        # (DependencyScanningService.h). Built with the same libc++ as our code.
+        "@llvm-project//clang:tooling",
     ],
     target_compatible_with = _LLVM_PLATFORM,
     visibility = ["//carve:__subpackages__"],
