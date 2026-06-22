@@ -60,7 +60,7 @@ sources to rederive from.
 Code-style and structural rules (layout, namespaces, header guards, target
 naming, `deps` vs `implementation_deps`) live in [RULES.md](RULES.md). Summary:
 
-- C++23, clang 20.1+ (clang 22.x is the recommended pin via `toolchains_llvm`).
+- C++23, clang 20.1+ (pinned at LLVM 22.1.7 via the hermetic-llvm `llvm` module).
 - Style: Google C++ with deviations in [.clang-format](.clang-format).
 - Lints: [.clang-tidy](.clang-tidy), `WarningsAsErrors: true`.
 - No exceptions (`-fno-exceptions` is set in `.bazelrc`); use `absl::Status` /
@@ -109,7 +109,7 @@ Edition 2024 (`edition = "2024";`) for new `.proto` files. Use
 
 ```bash
 bazel build //...                  # default toolchain
-bazel build //... --config=clang   # bundled clang via toolchains_llvm
+bazel build //... --config=clang   # hermetic clang via the llvm (hermetic-llvm) module
 bazel test //... --config=asan     # sanitizer presets
 ```
 

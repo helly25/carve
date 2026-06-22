@@ -20,7 +20,7 @@ file is corrected.
 
 ## C++
 
-- C++23, clang 20.1+ (clang 22.x recommended pin via `toolchains_llvm`).
+- C++23, clang 20.1+ (pinned at LLVM 22.1.7 via the hermetic-llvm `llvm` module).
 - Style: Google C++ with the deviations in [.clang-format](.clang-format);
   formatting is enforced, not negotiated.
 - Lints: [.clang-tidy](.clang-tidy) with `WarningsAsErrors: true`.

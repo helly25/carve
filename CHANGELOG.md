@@ -106,3 +106,15 @@ follows [SemVer](https://semver.org/).
   and consumed via a `local_path_override` to the sibling checkout until a
   release ships it. Bump LLVM 22.1.7 -> 22.1.8 and helly25_mbo 0.10.0 -> 0.11.1.
 - Pin the macOS deployment target to 11.0 so libc++ exposes `std::filesystem`.
+- **Switch the LLVM toolchain and clang libraries to hermetic-llvm** (the `llvm`
+  BCR module, LLVM 22.1.7): drop `toolchains_llvm`, the `clang_cpp` fork target,
+  and the `local_path_override`. `carve/scan_deps` now links
+  `@llvm-project//clang:tooling` built from source with the same libc++ as our
+  C++23 code — no shared-library ABI boundary and no libstdc++-on-Linux coupling.
+  LLVM's own sources build at C++17 (scoped in `.bazelrc`); ours stay C++23.
+- `carve/scan_deps` is no longer gated to darwin-arm64 — enabled on macOS and
+  Linux, built and tested under the hermetic toolchain in CI.
+- CI: persist Bazel disk + repository caches across runs (`actions/cache` over
+  `--disk_cache`/`--repository_cache`; the from-source LLVM build is ~12 min cold,
+  cacheable), and make the `done` gate self-check that every workflow job is
+  wired into its `needs` (mirrors mbo/bzl/xff).
