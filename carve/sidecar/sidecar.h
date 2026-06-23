@@ -62,6 +62,16 @@ struct KeyDiff {
     const ActionRecords& current,
     std::string_view project_id);
 
+// True if `stored` already holds a record in `project_id` with the same
+// `action_key` AND command as `candidate` — i.e. `candidate` is unchanged and
+// `MergeRecords` will reuse the stored record, so its cached fields (resolved
+// headers) need not be recomputed. Lets a caller skip re-scanning unchanged
+// actions.
+[[nodiscard]] bool HasMatchingRecord(
+    const ActionRecords& stored,
+    const ActionRecord& candidate,
+    std::string_view project_id);
+
 // Schema version stamped into a freshly built HeaderIndex; bump when the index
 // layout changes so stale sidecars can be detected and rebuilt.
 inline constexpr std::uint32_t kHeaderIndexSchemaVersion = 1;

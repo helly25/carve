@@ -122,6 +122,16 @@ ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& cur
   return merged;
 }
 
+bool HasMatchingRecord(const ActionRecords& stored, const ActionRecord& candidate, std::string_view project_id) {
+  for (const ActionRecord& record : stored.records()) {
+    if (record.project_id() == project_id && record.action_key() == candidate.action_key()
+        && SameCommand(record, candidate)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 HeaderIndex BuildHeaderIndex(const ActionRecords& records) {
   // btree containers keep the index deterministic: owners sorted by header_path,
   // action_keys sorted (lex-min first = canonical owner). Keys are views into

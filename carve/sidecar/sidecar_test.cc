@@ -37,6 +37,8 @@ using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Field;
 using ::testing::IsEmpty;
+using ::testing::IsFalse;
+using ::testing::IsTrue;
 
 TEST(LoadTest, MissingFileYieldsEmptyRecords) {
   EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"), IsOkAndHolds(EqualsProto("")));
@@ -130,6 +132,22 @@ TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) 
       MergeRecords(stored, current, "A"),
       EqualsProto(R"pb(records { action_key: "k1" command: "clang" project_id: "A" }
                        records { action_key: "k3" command: "clang" project_id: "B" })pb"));
+}
+
+TEST(HasMatchingRecordTest, MatchesOnlyOnKeyCommandAndProject) {
+  const ActionRecords stored =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "a.cc" project_id: "A" })pb");
+  const ActionRecord same =
+      ParseTextProtoOrDie(R"pb(action_key: "k1" command: "clang" command: "a.cc" project_id: "A")pb");
+  const ActionRecord other_command =
+      ParseTextProtoOrDie(R"pb(action_key: "k1" command: "clang" command: "b.cc" project_id: "A")pb");
+  const ActionRecord other_key =
+      ParseTextProtoOrDie(R"pb(action_key: "k2" command: "clang" command: "a.cc" project_id: "A")pb");
+
+  EXPECT_THAT(HasMatchingRecord(stored, same, "A"), IsTrue());
+  EXPECT_THAT(HasMatchingRecord(stored, other_command, "A"), IsFalse());  // command changed
+  EXPECT_THAT(HasMatchingRecord(stored, other_key, "A"), IsFalse());      // new action
+  EXPECT_THAT(HasMatchingRecord(stored, same, "B"), IsFalse());           // other project
 }
 
 TEST(BuildHeaderIndexTest, EmptyRecordsYieldEmptyIndexWithSchemaVersion) {

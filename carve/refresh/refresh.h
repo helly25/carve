@@ -46,9 +46,6 @@ struct Options {
   // sidecar merge is scoped to it so projects sharing a CDB do not clobber one
   // another. Empty means the unnamed default project.
   std::string project_id;
-
-  // Header scanner; empty means do not scan (records carry no `headers`).
-  HeaderScanner scanner;
 };
 
 // File-oriented inputs for `RunRefresh`.
@@ -62,7 +59,7 @@ struct FileOptions {
   std::string directory;             // Entry directory; empty => `bazel info execution_root`.
   std::string sidecar_path;          // Action-records sidecar; empty disables it.
   std::string project_id;            // See Options::project_id.
-  HeaderScanner scanner;             // See Options::scanner.
+  HeaderScanner scanner;             // Scans added/changed actions; empty = no header scanning.
 };
 
 // Obtains the aquery proto — by reading `aquery_proto_path` if set, otherwise by
