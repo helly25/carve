@@ -70,7 +70,8 @@ test --test_output=errors
 common --copt=-fdiagnostics-color=always
 common --copt=-fno-exceptions
 
-# --config=clang: route through toolchains_llvm.
+# --config=clang: enable C++ toolchain resolution so the registered hermetic-llvm
+# clang toolchain (libc++ built from source) is selected instead of the host's.
 common:clang --incompatible_enable_cc_toolchain_resolution
 common:clang --cxxopt=-gmlt
 common:clang --host_cxxopt=-gmlt

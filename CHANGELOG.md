@@ -114,6 +114,9 @@ follows [SemVer](https://semver.org/).
   LLVM's own sources build at C++17 (scoped in `.bazelrc`); ours stay C++23.
 - `carve/scan_deps` is no longer gated to darwin-arm64 — enabled on macOS and
   Linux, built and tested under the hermetic toolchain in CI.
+- Remove the orphaned `third_party/llvm/` overlay (the obsolete prebuilt-libs
+  BUILD overlay) and correct the now-stale `--config=clang` comment in
+  `.bazelrc`, finishing the hermetic-llvm switch cleanup.
 - CI: persist Bazel disk + repository caches across runs (`actions/cache` over
   `--disk_cache`/`--repository_cache`; the from-source LLVM build is ~12 min cold,
   cacheable), and make the `done` gate self-check that every workflow job is
