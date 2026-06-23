@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -126,11 +127,7 @@ absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::s
 // stores them on the record. A scan failure leaves `headers` unset (the action
 // is simply not header-cached this run).
 void ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderScanner& scanner) {
-  std::vector<std::string> argv;
-  argv.reserve(static_cast<std::size_t>(record.command_size()));
-  for (std::string_view arg : record.command()) {
-    argv.emplace_back(arg);
-  }
+  const std::vector<std::string> argv(record.command().begin(), record.command().end());
   absl::StatusOr<std::vector<std::string>> headers = scanner(argv, directory);
   if (headers.ok()) {
     for (const std::string& header : *headers) {
@@ -165,19 +162,16 @@ bool ModifiedAfter(const std::filesystem::path& path, std::int64_t since) {
 // acceptable for a CDB cache, and clangd re-preprocesses regardless.
 bool CachedScanIsStale(const ActionRecord& stored, std::string_view directory) {
   if (stored.written_at() == 0) {
-    return true;
+    return true;  // No baseline timestamp: re-scan to establish one.
   }
-  for (std::string_view source : stored.sources()) {
-    if (ModifiedAfter(AbsoluteFile(directory, source), stored.written_at())) {
-      return true;
-    }
-  }
-  for (std::string_view header : stored.headers()) {
-    if (ModifiedAfter(std::filesystem::path(header), stored.written_at())) {
-      return true;
-    }
-  }
-  return false;
+  const std::int64_t since = stored.written_at();
+  // Sources are execroot-relative; scan-deps headers are already absolute.
+  return absl::c_any_of(
+             stored.sources(),
+             [&](std::string_view source) { return ModifiedAfter(AbsoluteFile(directory, source), since); })
+         || absl::c_any_of(stored.headers(), [&](std::string_view header) {
+              return ModifiedAfter(std::filesystem::path(header), since);
+            });
 }
 
 // Projects action records into compilation-database entries.
@@ -188,11 +182,7 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
     if (record.sources_size() == 0) {
       continue;
     }
-    std::vector<std::string> arguments;
-    arguments.reserve(static_cast<std::size_t>(record.command_size()));
-    for (std::string_view arg : record.command()) {
-      arguments.emplace_back(arg);
-    }
+    std::vector<std::string> arguments(record.command().begin(), record.command().end());
     entries.push_back(
         cdb::CompileCommand{
             .directory = std::string(directory),

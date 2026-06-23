@@ -20,6 +20,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
@@ -95,7 +96,7 @@ KeyDiff DiffActionKeys(const ActionRecords& stored, absl::Span<const std::string
 namespace {
 
 bool SameCommand(const ActionRecord& lhs, const ActionRecord& rhs) {
-  return std::equal(lhs.command().begin(), lhs.command().end(), rhs.command().begin(), rhs.command().end());
+  return absl::c_equal(lhs.command(), rhs.command());
 }
 
 }  // namespace
