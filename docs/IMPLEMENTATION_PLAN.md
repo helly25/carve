@@ -17,7 +17,7 @@ Legend: ✅ done & tested · 🟡 partial · ⬜ not started.
 | `io` (atomic write, read)                                     | ✅     |                                                                       |
 | `process` (subprocess capture)                                | ✅     | POSIX; Windows later                                                  |
 | `cdb` (model + JSON + atomic write)                           | ✅     | deterministic output                                                  |
-| `command` (de-Bazel argv)                                     | 🟡     | 2 of ~12 quirks (`-fno-canonical-system-headers`, `-gcc-toolchain`)   |
+| `command` (de-Bazel argv)                                     | 🟡     | M2 quirks landed; nvcc/emscripten/cross-host canonicalization left    |
 | `aquery` (proto parse, param-file expand, path resolve)       | ✅     | vendored trimmed `analysis_v2.proto`                                  |
 | `sidecar` (schema, Load/Save, diff, project-scoped merge)     | ✅     | `HeaderIndex` built & persisted; `written_at` stamped                 |
 | `refresh` (in-process aquery, execroot, merge, multi-project) | ✅     | M1 done: scan-deps, incremental, staleness, header index, `--jobs`    |
@@ -57,8 +57,16 @@ Acceptance: `carve refresh` on this repo populates `headers`; editing a header i
 ### M2 — Complete the de-Bazel quirk inventory (CARVE_DESIGN §4.3)
 Independent of M1; can run in parallel. One golden test per quirk (design §9.2).
 
-- Execroot / absolute-path canonicalization (also the precondition for cross-host determinism and clean clangd paths).
-- Apple `wrapped_clang` + `__BAZEL_XCODE_*`; NVCC→clang; MSVC `/showIncludes`; ccache symlink; Windows command-line length; `//external` symlink/execroot; `parse_headers`/`layering_check`/`compiler_param_file` action filtering.
+Done (golden-tested in `carve/command`, wired through `refresh`):
+- ✅ `-fno-canonical-system-headers` strip (clangd#1004) and `-gcc-toolchain` strip (clangd#1248).
+- ✅ ccache wrapper: drop a leading `ccache` so argv[0] is the real compiler.
+- ✅ MSVC `/showIncludes`[`:user`] strip; `-fmodules-cache-path=bazel-out/...` strip.
+- ✅ Apple `wrapped_clang` + `__BAZEL_XCODE_*`: `command::ResolveXcodePlaceholders` substitutes the developer-dir/SDK paths; `refresh` invokes an injected `XcodeResolver` (the binary resolves via `xcode-select`/`xcrun` on macOS) only when a command carries a placeholder.
+- ✅ `parse_headers` actions are filtered implicitly: their "source" is a header, so `FindSource` finds no TU and the action is skipped.
+
+Remaining (deferred — niche toolchains or a design-level property; best validated against M3's corpus):
+- ⬜ Execroot / absolute-path canonicalization to *workspace-relative* (the cross-host determinism property, §9). carve currently emits paths absolute against the execroot, which clangd consumes correctly; workspace-relative rewriting is a separate, larger change.
+- ⬜ NVCC→clang flag translation (CUDA); Emscripten driver indirection; Windows command-line-length param-file specifics (carve already expands `@param` files via aquery `--include_param_files`).
 
 Acceptance: golden test per quirk; platform-specific ones skipped where the toolchain is absent.
 

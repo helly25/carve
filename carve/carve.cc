@@ -18,6 +18,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "absl/flags/flag.h"
@@ -30,6 +31,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "carve/cli/cli.h"
+#include "carve/process/process.h"
 #include "carve/refresh/refresh.h"
 #include "carve/scan_deps/scan_deps.h"
 #include "mbo/status/status_macros.h"
@@ -68,6 +70,33 @@ void PrintError(std::string_view message) {
   std::cerr << "carve: error: " << message << '\n';
 }
 
+// Resolves the Apple toolchain paths that Bazel's `wrapped_clang` leaves as
+// `__BAZEL_XCODE_*` placeholders. macOS only; elsewhere there is nothing to
+// resolve, so the resolver is empty and refresh skips the substitution.
+carve::refresh::XcodeResolver MakeXcodeResolver() {
+#if defined(__APPLE__)
+  return [] {
+    const auto trimmed_output = [](const std::vector<std::string>& argv) -> std::string {
+      const absl::StatusOr<carve::process::CommandResult> result = carve::process::Run(argv);
+      if (!result.ok() || result->exit_code != 0) {
+        return "";
+      }
+      std::string out = result->stdout_data;
+      while (!out.empty() && (out.back() == '\n' || out.back() == '\r' || out.back() == ' ')) {
+        out.pop_back();
+      }
+      return out;
+    };
+    return carve::refresh::XcodePaths{
+        .developer_dir = trimmed_output({"xcode-select", "-p"}),
+        .sdkroot = trimmed_output({"xcrun", "--sdk", "macosx", "--show-sdk-path"}),
+    };
+  };
+#else
+  return {};
+#endif
+}
+
 // Runs the `refresh` subcommand from flags. This is the Layer A path that reads
 // a pre-captured aquery proto; in-process aquery and scan-deps land later.
 absl::Status RunRefreshFromFlags() {
@@ -93,6 +122,7 @@ absl::Status RunRefreshFromFlags() {
       .scanner = carve::scan_deps::ScanDependencies,
       .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
       .jobs = jobs,
+      .xcode_resolver = MakeXcodeResolver(),
   };
   MBO_ASSIGN_OR_RETURN(const carve::refresh::RefreshStats stats, carve::refresh::RunRefresh(options));
   std::cerr << absl::StreamFormat(

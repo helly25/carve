@@ -23,6 +23,8 @@ cc_library(
     hdrs = ["command.h"],
     visibility = ["//carve:__subpackages__"],
     deps = [
+        "@abseil-cpp//absl/algorithm:container",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/types:span",
     ],
 )

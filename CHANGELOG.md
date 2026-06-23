@@ -167,6 +167,13 @@ follows [SemVer](https://semver.org/).
   `-Wthread-safety` (first-party `-Werror`). (A runtime tsan CI job is not wired
   up: the hermetic `llvm` toolchain cannot build the compiler-rt sanitizer
   runtime; see the commented-out `:tsan` config in `.bazelrc`.) Completes M1.
+- M2 de-Bazel quirks: `command::DeBazel` now also drops a leading `ccache`
+  wrapper, MSVC `/showIncludes`[`:user`], and `-fmodules-cache-path=bazel-out/...`;
+  new `command::ResolveXcodePlaceholders` substitutes Apple `wrapped_clang`
+  `__BAZEL_XCODE_*` placeholders, which `refresh` applies via an injected
+  `XcodeResolver` (the binary resolves `xcode-select`/`xcrun` on macOS, only when
+  a command carries a placeholder). Golden-tested. (nvcc/emscripten flag
+  translation and workspace-relative path canonicalization remain.)
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

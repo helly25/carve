@@ -629,5 +629,28 @@ TEST(RunRefreshTest, ScansActionsInParallel) {
                                                     })pb")));
 }
 
+TEST(RunRefreshTest, ResolvesXcodePlaceholdersViaTheInjectedResolver) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg :
+       {"__BAZEL_XCODE_DEVELOPER_DIR__/usr/bin/clang", "-isysroot__BAZEL_XCODE_SDKROOT__", "-c", "a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_xcode", container);
+  options.xcode_resolver = [] { return XcodePaths{.developer_dir = "/Dev", .sdkroot = "/SDKs/MacOSX.sdk"}; };
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The wrapped_clang placeholders are replaced with the resolver's paths.
+  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                                   action_key: "k1"
+                                                                                   sources: "a.cc"
+                                                                                   command: "/Dev/usr/bin/clang"
+                                                                                   command: "-isysroot/SDKs/MacOSX.sdk"
+                                                                                   command: "-c"
+                                                                                   command: "a.cc"
+                                                                                 })pb")));
+}
+
 }  // namespace
 }  // namespace carve::refresh
