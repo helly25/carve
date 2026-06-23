@@ -24,6 +24,9 @@ cc_binary(
     deps = [
         "//carve/cli:cli_cc",
         "//carve/refresh:refresh_cc",
+        # Real header scanner; its linux+macos platform gate propagates to this
+        # binary (and the e2e test), keeping refresh itself cross-platform.
+        "//carve/scan_deps:scan_deps_cc",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/flags:parse",
         "@abseil-cpp//absl/flags:usage",

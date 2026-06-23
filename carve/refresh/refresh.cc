@@ -74,9 +74,16 @@ std::string AbsoluteFile(std::string_view directory, std::string_view source) {
 }
 
 // Maps one compile action to an ActionRecord, de-Bazeling its argv and detecting
-// the source operand. Returns nullopt when no source can be identified (such an
-// action cannot form a valid compilation-database entry).
-std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action, std::string_view project_id) {
+// the source operand. When `scanner` is set, the action's header dependencies
+// are scanned (against `directory`) and stored; a scan failure leaves `headers`
+// unset (the action is simply not header-cached). Returns nullopt when no source
+// can be identified (such an action cannot form a valid compilation-database
+// entry).
+std::optional<ActionRecord> MakeRecord(
+    const aquery::CompileAction& action,
+    std::string_view project_id,
+    std::string_view directory,
+    const HeaderScanner& scanner) {
   std::vector<std::string> arguments = command::DeBazel(action.arguments);
   const std::string_view source = FindSource(arguments);
   if (source.empty()) {
@@ -85,6 +92,14 @@ std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action, std:
   ActionRecord record;
   record.set_action_key(action.action_key);
   record.add_sources(std::string(source));  // Copies before `arguments` is moved.
+  if (scanner) {
+    absl::StatusOr<std::vector<std::string>> headers = scanner(arguments, directory);
+    if (headers.ok()) {
+      for (const std::string& header : *headers) {
+        record.add_headers(header);
+      }
+    }
+  }
   for (std::string& arg : arguments) {
     record.add_command(std::move(arg));
   }
@@ -101,15 +116,19 @@ std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action, std:
 }
 
 // Builds the current action records (all stamped with `project_id`) from
-// serialized aquery bytes.
-absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::string_view project_id) {
+// serialized aquery bytes, scanning headers via `scanner` when set.
+absl::StatusOr<ActionRecords> BuildRecords(
+    std::string_view aquery_proto,
+    std::string_view project_id,
+    std::string_view directory,
+    const HeaderScanner& scanner) {
   absl::StatusOr<std::vector<aquery::CompileAction>> actions = aquery::ParseCompileActions(aquery_proto);
   if (!actions.ok()) {
     return actions.status();
   }
   ActionRecords records;
   for (const aquery::CompileAction& action : *actions) {
-    std::optional<ActionRecord> record = MakeRecord(action, project_id);
+    std::optional<ActionRecord> record = MakeRecord(action, project_id, directory, scanner);
     if (record.has_value()) {
       *records.add_records() = *std::move(record);
     }
@@ -182,7 +201,8 @@ absl::StatusOr<std::string> RunAquery(const std::vector<std::string>& targets, c
 }  // namespace
 
 absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto, const Options& options) {
-  const absl::StatusOr<ActionRecords> records = BuildRecords(aquery_proto, options.project_id);
+  const absl::StatusOr<ActionRecords> records =
+      BuildRecords(aquery_proto, options.project_id, options.directory, options.scanner);
   if (!records.ok()) {
     return records.status();
   }
@@ -212,7 +232,7 @@ absl::Status RunRefresh(const FileOptions& options) {
     directory = *std::move(execroot);
   }
 
-  absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id);
+  absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id, directory, options.scanner);
   if (!current.ok()) {
     return current.status();
   }

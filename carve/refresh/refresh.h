@@ -16,15 +16,25 @@
 #ifndef CARVE_REFRESH_REFRESH_H_
 #define CARVE_REFRESH_REFRESH_H_
 
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "carve/cdb/cdb.h"
 
 namespace carve::refresh {
+
+// Scans a compile command's header dependencies: given the (de-Bazeled) argv and
+// the working directory, returns the dependency paths. Injected so `refresh`
+// stays free of a hard libclang/platform dependency and is unit-testable with a
+// fake; the production scanner is `scan_deps::ScanDependencies`. An empty
+// scanner leaves records' `headers` unset.
+using HeaderScanner = std::function<
+    absl::StatusOr<std::vector<std::string>>(absl::Span<const std::string> argv, std::string_view directory)>;
 
 // Inputs that shape the produced compilation database.
 struct Options {
@@ -36,6 +46,9 @@ struct Options {
   // sidecar merge is scoped to it so projects sharing a CDB do not clobber one
   // another. Empty means the unnamed default project.
   std::string project_id;
+
+  // Header scanner; empty means do not scan (records carry no `headers`).
+  HeaderScanner scanner;
 };
 
 // File-oriented inputs for `RunRefresh`.
@@ -49,6 +62,7 @@ struct FileOptions {
   std::string directory;             // Entry directory; empty => `bazel info execution_root`.
   std::string sidecar_path;          // Action-records sidecar; empty disables it.
   std::string project_id;            // See Options::project_id.
+  HeaderScanner scanner;             // See Options::scanner.
 };
 
 // Obtains the aquery proto — by reading `aquery_proto_path` if set, otherwise by

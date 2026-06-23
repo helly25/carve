@@ -20,15 +20,19 @@
 #include <ios>
 #include <iterator>
 #include <string>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/status_matchers.h"
+#include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "carve/cdb/cdb.h"
 #include "carve/sidecar/carve.pb.h"
 #include "carve/sidecar/sidecar.h"
 #include "carve/third_party/bazel/analysis_v2.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "mbo/proto/matchers.h"
 
 namespace carve::refresh {
 namespace {
@@ -36,6 +40,7 @@ namespace {
 using ::absl_testing::IsOk;
 using ::absl_testing::IsOkAndHolds;
 using ::absl_testing::StatusIs;
+using ::mbo::proto::EqualsProto;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Eq;
@@ -231,6 +236,32 @@ TEST(RunRefreshTest, ChangedCommandRebuildsRecordDroppingStaleCache) {
   EXPECT_THAT(
       sidecar::Load(options.sidecar_path),
       IsOkAndHolds(Property(&ActionRecords::SerializeAsString, Eq(expected.SerializeAsString()))));
+}
+
+TEST(RunRefreshTest, PopulatesHeadersFromTheInjectedScanner) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_scan_headers", container);
+  options.scanner = [](absl::Span<const std::string> /*argv*/,
+                       std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    return std::vector<std::string>{"src/a.cc", "dep.h"};
+  };
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The scanner's dependency paths are stored on the record as `headers`.
+  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                                   action_key: "k1"
+                                                                                   sources: "src/a.cc"
+                                                                                   headers: "src/a.cc"
+                                                                                   headers: "dep.h"
+                                                                                   command: "clang"
+                                                                                   command: "-c"
+                                                                                   command: "src/a.cc"
+                                                                                 })pb")));
 }
 
 }  // namespace
