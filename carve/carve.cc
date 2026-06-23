@@ -14,7 +14,7 @@
 // limitations under the License.
 
 #include <cstddef>
-#include <cstdio>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,7 +24,7 @@
 #include "absl/flags/usage.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -62,7 +62,7 @@ constexpr std::string_view kUsage =
     "  see CARVE_DESIGN.md section 6 for the per-subcommand flag surface";
 
 void PrintError(std::string_view message) {
-  std::fputs(absl::StrCat("carve: error: ", message, "\n").c_str(), stderr);
+  std::cerr << "carve: error: " << message << '\n';
 }
 
 // Runs the `refresh` subcommand from flags. This is the Layer A path that reads
@@ -73,7 +73,7 @@ absl::Status RunRefreshFromFlags() {
   if (!targets_flag.empty()) {
     targets = absl::StrSplit(targets_flag, ',', absl::SkipEmpty());
   }
-  return carve::refresh::RunRefresh(
+  const absl::StatusOr<carve::refresh::RefreshStats> stats = carve::refresh::RunRefresh(
       carve::refresh::FileOptions{
           .aquery_proto_path = absl::GetFlag(FLAGS_aquery_proto),
           .targets = std::move(targets),
@@ -85,6 +85,18 @@ absl::Status RunRefreshFromFlags() {
           .scanner = carve::scan_deps::ScanDependencies,
           .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
       });
+  if (!stats.ok()) {
+    return stats.status();
+  }
+  std::cerr << absl::StreamFormat(
+      "carve: wrote %d entries (%d scanned, %d reused)\n", stats->entries, stats->scanned, stats->reused);
+  if (stats->unresolved > 0) {
+    std::cerr << absl::StreamFormat(
+        "carve: warning: %d action(s) have unresolved headers (unbuilt generated headers?); "
+        "re-scanned next refresh\n",
+        stats->unresolved);
+  }
+  return absl::OkStatus();
 }
 
 int RealMain(int argc, char** argv) {
@@ -95,7 +107,7 @@ int RealMain(int argc, char** argv) {
   // subcommand token, and the rest are its arguments.
   if (positional.size() < 2) {
     PrintError("missing subcommand");
-    std::fputs(absl::StrCat(kUsage, "\n").c_str(), stderr);
+    std::cerr << kUsage << '\n';
     return 2;
   }
 
