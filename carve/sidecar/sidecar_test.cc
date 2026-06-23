@@ -23,18 +23,18 @@
 #include "carve/sidecar/carve.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "mbo/proto/matchers.h"
 
 namespace carve::sidecar {
 namespace {
 
 using ::absl_testing::IsOk;
 using ::absl_testing::IsOkAndHolds;
+using ::mbo::proto::EqualsProto;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
-using ::testing::Eq;
 using ::testing::Field;
 using ::testing::IsEmpty;
-using ::testing::Property;
 
 ActionRecords MakeRecords(const std::vector<std::string>& keys) {
   ActionRecords records;
@@ -45,7 +45,7 @@ ActionRecords MakeRecords(const std::vector<std::string>& keys) {
 }
 
 TEST(LoadTest, MissingFileYieldsEmptyRecords) {
-  EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"), IsOkAndHolds(Property(&ActionRecords::records_size, Eq(0))));
+  EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"), IsOkAndHolds(EqualsProto(ActionRecords())));
 }
 
 TEST(SaveLoadTest, RoundTripsContent) {
@@ -56,7 +56,7 @@ TEST(SaveLoadTest, RoundTripsContent) {
   std::filesystem::remove_all(path.parent_path());
 
   ASSERT_THAT(Save(path, records), IsOk());
-  EXPECT_THAT(Load(path), IsOkAndHolds(Property(&ActionRecords::SerializeAsString, Eq(records.SerializeAsString()))));
+  EXPECT_THAT(Load(path), IsOkAndHolds(EqualsProto(records)));
 }
 
 TEST(DiffActionKeysTest, PartitionsAddedRemovedCommon) {
@@ -95,7 +95,7 @@ TEST(MergeRecordsTest, UnchangedActionKeepsStoredCachedFields) {
   AddRecord(current, "k1", {"clang", "-c", "a.cc"});  // Same command, no headers.
 
   // The stored record (with its cached header) is preserved verbatim.
-  EXPECT_THAT(MergeRecords(stored, current, "").SerializeAsString(), Eq(stored.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(stored));
 }
 
 TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
@@ -105,7 +105,7 @@ TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
   ActionRecords current;
   AddRecord(current, "k1", {"clang", "new"});
 
-  EXPECT_THAT(MergeRecords(stored, current, "").SerializeAsString(), Eq(current.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(current));
 }
 
 TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
@@ -120,7 +120,7 @@ TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
   AddRecord(expected, "k2", {"clang"});
   AddRecord(expected, "k3", {"clang"});
 
-  EXPECT_THAT(MergeRecords(stored, current, "").SerializeAsString(), Eq(expected.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(expected));
 }
 
 TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
@@ -136,7 +136,7 @@ TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
   AddRecord(expected, "k1", {"clang", "a2"})->set_project_id("A");
   AddRecord(expected, "k2", {"clang", "b"})->set_project_id("B");
 
-  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(), Eq(expected.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, "A"), EqualsProto(expected));
 }
 
 TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) {
@@ -153,7 +153,7 @@ TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) 
   AddRecord(expected, "k1", {"clang"})->set_project_id("A");
   AddRecord(expected, "k3", {"clang"})->set_project_id("B");
 
-  EXPECT_THAT(MergeRecords(stored, current, "A").SerializeAsString(), Eq(expected.SerializeAsString()));
+  EXPECT_THAT(MergeRecords(stored, current, "A"), EqualsProto(expected));
 }
 
 }  // namespace
