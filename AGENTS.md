@@ -145,6 +145,7 @@ If you are an AI agent making changes:
 ## Documents to keep in sync
 
 - [CARVE_DESIGN.md](CARVE_DESIGN.md): architecture. Update when design changes.
+- [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md): status + ordered remaining work. Update as milestones land.
 - [RULES.md](RULES.md): code-style and structural rules. Update when conventions change.
 - [README.md](README.md): user-facing intro. Update on user-visible changes.
 - [CHANGELOG.md](CHANGELOG.md): every PR adds a line under `[Unreleased]`.
