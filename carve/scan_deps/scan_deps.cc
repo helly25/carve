@@ -65,7 +65,7 @@ class CapturingDiagnosticConsumer : public clang::DiagnosticConsumer {
 // continuations and backslash-escaped spaces.
 std::vector<std::string> ParseMakeDependencies(std::string_view make) {
   const std::string_view::size_type colon = make.find(':');
-  const std::string_view rest = colon == std::string_view::npos ? make : make.substr(colon + 1);
+  std::string_view rest = colon == std::string_view::npos ? make : make.substr(colon + 1);
   std::vector<std::string> deps;
   std::string current;
   for (std::string_view::size_type i = 0; i < rest.size(); ++i) {
