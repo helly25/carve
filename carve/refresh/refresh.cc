@@ -124,16 +124,20 @@ absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::s
 }
 
 // Scans `record`'s command for header dependencies (against `directory`) and
-// stores them on the record. A scan failure leaves `headers` unset (the action
-// is simply not header-cached this run).
-void ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderScanner& scanner) {
+// stores them on the record. Returns true if the scan succeeded; false if it
+// failed (e.g. an unbuilt generated header that scan-deps cannot resolve), in
+// which case `headers` is left unset and the caller should not treat the record
+// as completely cached (CARVE_DESIGN.md section 4.2).
+bool ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderScanner& scanner) {
   const std::vector<std::string> argv(record.command().begin(), record.command().end());
   absl::StatusOr<std::vector<std::string>> headers = scanner(argv, directory);
-  if (headers.ok()) {
-    for (const std::string& header : *headers) {
-      record.add_headers(header);
-    }
+  if (!headers.ok()) {
+    return false;
   }
+  for (const std::string& header : *headers) {
+    record.add_headers(header);
+  }
+  return true;
 }
 
 // True if `path` exists and was last modified strictly after `since` (unix
@@ -242,7 +246,7 @@ absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view a
   return EntriesFromRecords(*records, options.directory);
 }
 
-absl::Status RunRefresh(const FileOptions& options) {
+absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
   absl::StatusOr<std::string> proto;
   if (!options.aquery_proto_path.empty()) {
     proto = io::ReadFile(options.aquery_proto_path);
@@ -272,12 +276,21 @@ absl::Status RunRefresh(const FileOptions& options) {
 
   if (options.sidecar_path.empty()) {
     // No cache: scan every action (when a scanner is configured).
+    RefreshStats stats;
     if (options.scanner) {
       for (ActionRecord& record : *current->mutable_records()) {
-        ScanHeaders(record, directory, options.scanner);
+        ++stats.scanned;
+        if (!ScanHeaders(record, directory, options.scanner)) {
+          ++stats.unresolved;
+        }
       }
     }
-    return cdb::Write(options.output_path, EntriesFromRecords(*current, directory));
+    const std::vector<cdb::CompileCommand> entries = EntriesFromRecords(*current, directory);
+    stats.entries = static_cast<int>(entries.size());
+    if (const absl::Status written = cdb::Write(options.output_path, entries); !written.ok()) {
+      return written;
+    }
+    return stats;
   }
 
   const absl::StatusOr<ActionRecords> stored = sidecar::Load(options.sidecar_path);
@@ -291,12 +304,16 @@ absl::Status RunRefresh(const FileOptions& options) {
   // below — the incremental-refresh win. `rescanned` records which keys carry a
   // fresh scan so the merge prefers the current record over the stale cache.
   absl::flat_hash_set<std::string_view> rescanned;
+  absl::flat_hash_set<std::string_view> unresolved;
   if (options.scanner) {
     for (ActionRecord& record : *current->mutable_records()) {
       const ActionRecord* reusable = sidecar::FindReusableRecord(*stored, record, options.project_id);
-      if (reusable == nullptr || CachedScanIsStale(*reusable, directory)) {
-        ScanHeaders(record, directory, options.scanner);
-        rescanned.insert(record.action_key());
+      if (reusable != nullptr && !CachedScanIsStale(*reusable, directory)) {
+        continue;  // Unchanged and still fresh: reuse the cached headers.
+      }
+      rescanned.insert(record.action_key());
+      if (!ScanHeaders(record, directory, options.scanner)) {
+        unresolved.insert(record.action_key());
       }
     }
   }
@@ -305,11 +322,14 @@ absl::Status RunRefresh(const FileOptions& options) {
 
   // Stamp written_at on the rows this refresh owns — added, changed, and reused
   // alike — so prune can GC projects that have stopped refreshing. Other
-  // projects' rows keep their own timestamps. See CARVE_DESIGN.md section 4.4.
+  // projects' rows keep their own timestamps. An action whose scan did not fully
+  // resolve is left UNstamped (written_at stays unset, which reads as 0 = stale)
+  // so the next refresh re-scans it rather than caching an incomplete header set
+  // (CARVE_DESIGN.md sections 4.2, 4.4).
   if (options.clock) {
     const std::int64_t now = options.clock();
     for (ActionRecord& record : *merged.mutable_records()) {
-      if (record.project_id() == options.project_id) {
+      if (record.project_id() == options.project_id && !unresolved.contains(record.action_key())) {
         record.set_written_at(now);
       }
     }
@@ -330,7 +350,16 @@ absl::Status RunRefresh(const FileOptions& options) {
     return saved;
   }
 
-  return cdb::Write(options.output_path, EntriesFromRecords(merged, directory));
+  const std::vector<cdb::CompileCommand> entries = EntriesFromRecords(merged, directory);
+  RefreshStats stats;
+  stats.entries = static_cast<int>(entries.size());
+  stats.scanned = static_cast<int>(rescanned.size());
+  stats.unresolved = static_cast<int>(unresolved.size());
+  stats.reused = current->records_size() - stats.scanned;  // Own-project actions not rescanned.
+  if (const absl::Status written = cdb::Write(options.output_path, entries); !written.ok()) {
+    return written;
+  }
+  return stats;
 }
 
 }  // namespace carve::refresh

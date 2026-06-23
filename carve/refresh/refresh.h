@@ -70,14 +70,23 @@ struct FileOptions {
                                      // refresh (for prune/GC); empty leaves it unset.
 };
 
+// Outcome counts from a refresh, for reporting to the user.
+struct RefreshStats {
+  int entries = 0;     // Entries written to the compilation database (all projects).
+  int scanned = 0;     // Actions (re)scanned this run, including failures.
+  int reused = 0;      // Own-project actions whose cached headers were reused.
+  int unresolved = 0;  // Actions whose scan failed (e.g. unbuilt generated headers);
+                       // left unstamped so the next refresh re-scans them.
+};
+
 // Obtains the aquery proto — by reading `aquery_proto_path` if set, otherwise by
 // running `bazel aquery` over `targets` — builds the current action records,
 // and (when `sidecar_path` is set) merges them against the stored sidecar
 // (reusing cached records for unchanged actions, scoped to `project_id`), writes
 // the sidecar back, and emits the compilation database from the merged set.
-// Returns a non-OK status if no input source is given, the aquery fails, or any
-// file cannot be read or written.
-[[nodiscard]] absl::Status RunRefresh(const FileOptions& options);
+// Returns the refresh `RefreshStats` on success, or a non-OK status if no input
+// source is given, the aquery fails, or any file cannot be read or written.
+[[nodiscard]] absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options);
 
 // Builds compilation-database entries from serialized aquery
 // `ActionGraphContainer` bytes: parse the compile actions, de-Bazel their argv,

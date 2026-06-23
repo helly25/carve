@@ -152,6 +152,14 @@ follows [SemVer](https://semver.org/).
   be checked). Granularity is one second. Dogfooded: a warm refresh stays on the
   fast reuse path until a header is touched, which returns that action to a
   cold-cost re-scan.
+- Missing-generated-header guard: when scan-deps cannot resolve an action's
+  headers (typically an unbuilt generated header), `refresh` emits the CDB entry
+  but leaves that record unstamped (`written_at` unset) so the next refresh
+  re-scans it instead of caching the incomplete set (CARVE_DESIGN §4.2).
+  `RunRefresh` now returns a `RefreshStats` (`entries`/`scanned`/`reused`/
+  `unresolved`); the `carve` binary prints a one-line summary and an
+  unresolved-headers warning. Dogfooded: `wrote 1 entries (0 scanned, 1 reused)`
+  on a warm run.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

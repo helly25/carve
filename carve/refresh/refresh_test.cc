@@ -511,5 +511,66 @@ TEST(RunRefreshTest, UnmodifiedCachedScanIsReusedNotRescanned) {
                                                            fixture.header.string()))));
 }
 
+TEST(RunRefreshTest, FailedScanIsLeftUnstampedAndCounted) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_unresolved", container);
+  options.clock = [] { return std::int64_t{555}; };
+  // Mimic scan-deps hitting an unbuilt generated header: the scan fails.
+  options.scanner = [](absl::Span<const std::string> /*argv*/,
+                       std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    return absl::InvalidArgumentError("scan-deps failed: 'gen/foo.h' file not found");
+  };
+
+  // The failure is counted, and the record is stored WITHOUT headers and WITHOUT
+  // a timestamp -- even though the clock is set -- so the next refresh re-scans
+  // it instead of caching the incomplete result (CARVE_DESIGN.md section 4.2).
+  EXPECT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::unresolved, Eq(1))));
+  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                                   action_key: "k1"
+                                                                                   sources: "src/a.cc"
+                                                                                   command: "clang"
+                                                                                   command: "-c"
+                                                                                   command: "src/a.cc"
+                                                                                 })pb")));
+}
+
+TEST(RunRefreshTest, FailedScanIsRetriedOnTheNextRefresh) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_unresolved_retry", container);
+  options.clock = [] { return std::int64_t{555}; };
+  bool scan_fails = true;
+  options.scanner = [&scan_fails](
+                        absl::Span<const std::string> /*argv*/,
+                        std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    if (scan_fails) {
+      return absl::InvalidArgumentError("scan-deps failed: 'gen/foo.h' file not found");
+    }
+    return std::vector<std::string>{"resolved.h"};
+  };
+
+  // First refresh fails to resolve; the unstamped record is then re-scanned on
+  // the second refresh (now that the generated header exists) and cached.
+  ASSERT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::unresolved, Eq(1))));
+  scan_fails = false;
+  EXPECT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::scanned, Eq(1))));
+  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                                   action_key: "k1"
+                                                                                   sources: "src/a.cc"
+                                                                                   command: "clang"
+                                                                                   command: "-c"
+                                                                                   command: "src/a.cc"
+                                                                                   headers: "resolved.h"
+                                                                                   written_at: 555
+                                                                                 })pb")));
+}
+
 }  // namespace
 }  // namespace carve::refresh
