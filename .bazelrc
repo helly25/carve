@@ -109,6 +109,11 @@ common:tsan --copt -g
 common:tsan --copt -fno-omit-frame-pointer
 common:tsan --linkopt -fsanitize=thread
 common:tsan --features=tsan
+# The hermetic `llvm` toolchain only builds the compiler-rt sanitizer runtimes
+# (libclang_rt.tsan{,_cxx}) when asked; without this the tsan link fails with
+# "cannot open ... libclang_rt.tsan.a". The flag auto-disables in the exec
+# configuration, so host tools stay uninstrumented.
+common:tsan --@llvm//config:tsan=True
 
 common:ubsan --copt -fsanitize=undefined
 common:ubsan --copt -g
