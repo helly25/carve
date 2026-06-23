@@ -32,8 +32,7 @@ namespace carve::io {
 // temporary file and renaming it into place (rename is atomic within a
 // filesystem). Parent directories are created if missing. On failure `path` is
 // left untouched.
-[[nodiscard]] absl::Status WriteAtomically(const std::filesystem::path& path,
-                                           std::string_view content);
+[[nodiscard]] absl::Status WriteAtomically(const std::filesystem::path& path, std::string_view content);
 
 // Reads the entire file at `path`. Returns `NotFoundError` if it does not
 // exist, or another non-OK status if it cannot be read.

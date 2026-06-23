@@ -45,7 +45,7 @@ using ::testing::IsEmpty;
 using ::testing::Property;
 
 // Serializes `message` to `path` (creating parents), returning `path`.
-template <typename Message>
+template<typename Message>
 std::filesystem::path WriteProto(const std::filesystem::path& path, const Message& message) {
   std::filesystem::create_directories(path.parent_path());
   std::ofstream file(path, std::ios::binary);
@@ -64,8 +64,7 @@ analysis::Action* AddCompile(analysis::ActionGraphContainer& container, std::str
 TEST(BuildEntriesTest, MapsCompileActionToDeBazeledEntry) {
   analysis::ActionGraphContainer container;
   analysis::Action* compile = AddCompile(container, "k1");
-  for (std::string_view arg :
-       {"clang", "-fno-canonical-system-headers", "-c", "src/a.cc", "-o", "bazel-out/a.o"}) {
+  for (std::string_view arg : {"clang", "-fno-canonical-system-headers", "-c", "src/a.cc", "-o", "bazel-out/a.o"}) {
     compile->add_arguments(std::string(arg));
   }
 
@@ -76,8 +75,7 @@ TEST(BuildEntriesTest, MapsCompileActionToDeBazeledEntry) {
       IsOkAndHolds(ElementsAre(AllOf(
           Field(&cdb::CompileCommand::directory, Eq("/execroot/ws")),
           Field(&cdb::CompileCommand::file, Eq("/execroot/ws/src/a.cc")),
-          Field(&cdb::CompileCommand::arguments,
-                ElementsAre("clang", "-c", "src/a.cc", "-o", "bazel-out/a.o"))))));
+          Field(&cdb::CompileCommand::arguments, ElementsAre("clang", "-c", "src/a.cc", "-o", "bazel-out/a.o"))))));
 }
 
 TEST(BuildEntriesTest, AbsoluteSourcePathIsLeftUnchanged) {
@@ -87,8 +85,9 @@ TEST(BuildEntriesTest, AbsoluteSourcePathIsLeftUnchanged) {
   compile->add_arguments("-c");
   compile->add_arguments("/abs/src/a.cc");
 
-  EXPECT_THAT(BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"}),
-              IsOkAndHolds(ElementsAre(Field(&cdb::CompileCommand::file, Eq("/abs/src/a.cc")))));
+  EXPECT_THAT(
+      BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"}),
+      IsOkAndHolds(ElementsAre(Field(&cdb::CompileCommand::file, Eq("/abs/src/a.cc")))));
 }
 
 TEST(BuildEntriesTest, EmptyDirectoryLeavesSourceRelative) {
@@ -98,8 +97,9 @@ TEST(BuildEntriesTest, EmptyDirectoryLeavesSourceRelative) {
   compile->add_arguments("-c");
   compile->add_arguments("src/a.cc");
 
-  EXPECT_THAT(BuildEntries(container.SerializeAsString(), Options{.directory = ""}),
-              IsOkAndHolds(ElementsAre(Field(&cdb::CompileCommand::file, Eq("src/a.cc")))));
+  EXPECT_THAT(
+      BuildEntries(container.SerializeAsString(), Options{.directory = ""}),
+      IsOkAndHolds(ElementsAre(Field(&cdb::CompileCommand::file, Eq("src/a.cc")))));
 }
 
 TEST(BuildEntriesTest, SkipsActionsWithoutADetectableSource) {
@@ -108,8 +108,7 @@ TEST(BuildEntriesTest, SkipsActionsWithoutADetectableSource) {
   compile->add_arguments("clang");
   compile->add_arguments("--version");  // No source operand.
 
-  EXPECT_THAT(BuildEntries(container.SerializeAsString(), Options{.directory = "/ws"}),
-              IsOkAndHolds(IsEmpty()));
+  EXPECT_THAT(BuildEntries(container.SerializeAsString(), Options{.directory = "/ws"}), IsOkAndHolds(IsEmpty()));
 }
 
 TEST(BuildEntriesTest, EmptyInputYieldsNoEntries) {
@@ -134,28 +133,31 @@ TEST(RunRefreshTest, ReadsProtoFileAndWritesCompileCommands) {
     proto_file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
   }
 
-  ASSERT_THAT(RunRefresh(FileOptions{
-                  .aquery_proto_path = proto_path.string(),
-                  .output_path = out_path.string(),
-                  .directory = "/execroot/ws",
-              }),
-              IsOk());
+  ASSERT_THAT(
+      RunRefresh(
+          FileOptions{
+              .aquery_proto_path = proto_path.string(),
+              .output_path = out_path.string(),
+              .directory = "/execroot/ws",
+          }),
+      IsOk());
 
   std::ifstream out(out_path, std::ios::binary);
-  const std::string cdb_json((std::istreambuf_iterator<char>(out)),
-                             std::istreambuf_iterator<char>());
+  const std::string cdb_json((std::istreambuf_iterator<char>(out)), std::istreambuf_iterator<char>());
   EXPECT_THAT(cdb_json, HasSubstr("\"file\": \"/execroot/ws/src/a.cc\""));
   EXPECT_THAT(cdb_json, HasSubstr("\"directory\": \"/execroot/ws\""));
 }
 
 TEST(RunRefreshTest, MissingProtoFileIsNotFound) {
-  EXPECT_THAT(RunRefresh(FileOptions{
-                  .aquery_proto_path = "/no/such/file.pb",
-                  .output_path = (std::filesystem::path(::testing::TempDir()) / "unused.json").string(),
-                  .directory = "/ws",
-                  .sidecar_path = "",
-              }),
-              StatusIs(absl::StatusCode::kNotFound));
+  EXPECT_THAT(
+      RunRefresh(
+          FileOptions{
+              .aquery_proto_path = "/no/such/file.pb",
+              .output_path = (std::filesystem::path(::testing::TempDir()) / "unused.json").string(),
+              .directory = "/ws",
+              .sidecar_path = "",
+          }),
+      StatusIs(absl::StatusCode::kNotFound));
 }
 
 // Returns FileOptions rooted at a fresh temporary directory `name`.
@@ -193,9 +195,9 @@ TEST(RunRefreshTest, UnchangedActionReusesStoredRecordWithCachedHeaders) {
   ASSERT_THAT(RunRefresh(options), IsOk());
 
   // The unchanged action keeps the cached record verbatim.
-  EXPECT_THAT(sidecar::Load(options.sidecar_path),
-              IsOkAndHolds(Property(&ActionRecords::SerializeAsString,
-                                    Eq(seed.SerializeAsString()))));
+  EXPECT_THAT(
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(Property(&ActionRecords::SerializeAsString, Eq(seed.SerializeAsString()))));
 }
 
 TEST(RunRefreshTest, ChangedCommandRebuildsRecordDroppingStaleCache) {
@@ -226,9 +228,9 @@ TEST(RunRefreshTest, ChangedCommandRebuildsRecordDroppingStaleCache) {
   for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
     rebuilt->add_command(std::string(arg));
   }
-  EXPECT_THAT(sidecar::Load(options.sidecar_path),
-              IsOkAndHolds(Property(&ActionRecords::SerializeAsString,
-                                    Eq(expected.SerializeAsString()))));
+  EXPECT_THAT(
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(Property(&ActionRecords::SerializeAsString, Eq(expected.SerializeAsString()))));
 }
 
 }  // namespace

@@ -39,8 +39,7 @@ struct CompileAction {
 // files (`@path`) are expanded inline from the action's embedded param files
 // when present (`bazel aquery --include_param_files`). Returns
 // `InvalidArgumentError` if the bytes are not a valid ActionGraphContainer.
-[[nodiscard]] absl::StatusOr<std::vector<CompileAction>> ParseCompileActions(
-    std::string_view serialized);
+[[nodiscard]] absl::StatusOr<std::vector<CompileAction>> ParseCompileActions(std::string_view serialized);
 
 }  // namespace carve::aquery
 

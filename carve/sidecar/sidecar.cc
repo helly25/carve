@@ -54,8 +54,7 @@ KeyDiff DiffActionKeys(const ActionRecords& stored, absl::Span<const std::string
   for (const ActionRecord& record : stored.records()) {
     stored_set.insert(record.action_key());
   }
-  const absl::flat_hash_set<std::string_view> current_set(current_keys.begin(),
-                                                          current_keys.end());
+  const absl::flat_hash_set<std::string_view> current_set(current_keys.begin(), current_keys.end());
 
   KeyDiff diff;
   for (const std::string_view key : current_set) {
@@ -88,8 +87,7 @@ bool SameCommand(const ActionRecord& lhs, const ActionRecord& rhs) {
 
 }  // namespace
 
-ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current,
-                           std::string_view project_id) {
+ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current, std::string_view project_id) {
   ActionRecords merged;
   // Records of other projects pass through untouched; index our project's
   // stored records by key for reuse.
@@ -111,13 +109,14 @@ ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& cur
     }
   }
 
-  std::sort(merged.mutable_records()->pointer_begin(), merged.mutable_records()->pointer_end(),
-            [](const ActionRecord* lhs, const ActionRecord* rhs) {
-              if (lhs->project_id() != rhs->project_id()) {
-                return lhs->project_id() < rhs->project_id();
-              }
-              return lhs->action_key() < rhs->action_key();
-            });
+  std::sort(
+      merged.mutable_records()->pointer_begin(), merged.mutable_records()->pointer_end(),
+      [](const ActionRecord* lhs, const ActionRecord* rhs) {
+        if (lhs->project_id() != rhs->project_id()) {
+          return lhs->project_id() < rhs->project_id();
+        }
+        return lhs->action_key() < rhs->action_key();
+      });
   return merged;
 }
 

@@ -42,7 +42,7 @@ constexpr std::array<std::string_view, 2> kDropWithValue = {
     "--gcc-toolchain",
 };
 
-template <std::size_t N>
+template<std::size_t N>
 bool Contains(const std::array<std::string_view, N>& set, std::string_view value) {
   for (const std::string_view candidate : set) {
     if (candidate == value) {
@@ -52,7 +52,7 @@ bool Contains(const std::array<std::string_view, N>& set, std::string_view value
   return false;
 }
 
-template <std::size_t N>
+template<std::size_t N>
 bool StartsWithAny(const std::array<std::string_view, N>& prefixes, std::string_view value) {
   for (const std::string_view prefix : prefixes) {
     if (value.starts_with(prefix)) {

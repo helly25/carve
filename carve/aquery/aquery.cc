@@ -72,8 +72,7 @@ std::vector<std::string> ExpandParamFiles(const analysis::Action& action) {
       const auto it = by_exec_path.find(arg.substr(1));
       if (it != by_exec_path.end()) {
         ++expansions;
-        std::vector<std::string_view> nested(it->second->arguments().begin(),
-                                             it->second->arguments().end());
+        std::vector<std::string_view> nested(it->second->arguments().begin(), it->second->arguments().end());
         std::reverse(nested.begin(), nested.end());
         stack.push_back(std::move(nested));
         continue;

@@ -32,7 +32,8 @@ namespace carve::scan_deps {
 // the headers it includes. Returns a non-OK status if scanning fails (e.g. a
 // missing header). The scan is performed entirely in-process (no subprocess).
 [[nodiscard]] absl::StatusOr<std::vector<std::string>> ScanDependencies(
-    absl::Span<const std::string> args, std::string_view working_dir);
+    absl::Span<const std::string> args,
+    std::string_view working_dir);
 
 }  // namespace carve::scan_deps
 

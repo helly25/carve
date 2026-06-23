@@ -45,8 +45,9 @@ TEST(ScanDependenciesTest, ReportsSourceAndIncludedHeader) {
   Write(dir / "main.cc", "#include \"dep.h\"\nint main() { return dep(); }\n");
 
   const std::vector<std::string> args = {"clang", "-c", (dir / "main.cc").string()};
-  EXPECT_THAT(ScanDependencies(args, dir.string()),
-              IsOkAndHolds(testing::AllOf(Contains(HasSubstr("main.cc")), Contains(HasSubstr("dep.h")))));
+  EXPECT_THAT(
+      ScanDependencies(args, dir.string()),
+      IsOkAndHolds(testing::AllOf(Contains(HasSubstr("main.cc")), Contains(HasSubstr("dep.h")))));
 }
 
 TEST(ScanDependenciesTest, MissingHeaderIsAnError) {

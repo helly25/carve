@@ -41,8 +41,8 @@ absl::Status ErrnoError(std::string_view what) {
 // Drains `out_fd` and `err_fd` into the result strings until both reach EOF,
 // polling so neither pipe blocks the other.
 void DrainPipes(int out_fd, int err_fd, CommandResult& result) {
-  std::array<pollfd, 2> fds = {pollfd{.fd = out_fd, .events = POLLIN, .revents = 0},
-                               pollfd{.fd = err_fd, .events = POLLIN, .revents = 0}};
+  std::array<pollfd, 2> fds = {
+      pollfd{.fd = out_fd, .events = POLLIN, .revents = 0}, pollfd{.fd = err_fd, .events = POLLIN, .revents = 0}};
   std::array<std::string*, 2> sinks = {&result.stdout_data, &result.stderr_data};
   int open_fds = 2;
   while (open_fds > 0) {
@@ -56,7 +56,7 @@ void DrainPipes(int out_fd, int err_fd, CommandResult& result) {
       if (fds[i].fd < 0 || (fds[i].revents & (POLLIN | POLLHUP | POLLERR)) == 0) {
         continue;
       }
-      std::array<char, 4096> buffer{};
+      std::array<char, 4'096> buffer{};
       const ssize_t got = ::read(fds[i].fd, buffer.data(), buffer.size());
       if (got > 0) {
         sinks[i]->append(buffer.data(), static_cast<std::size_t>(got));

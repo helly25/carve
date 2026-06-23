@@ -76,8 +76,7 @@ std::string AbsoluteFile(std::string_view directory, std::string_view source) {
 // Maps one compile action to an ActionRecord, de-Bazeling its argv and detecting
 // the source operand. Returns nullopt when no source can be identified (such an
 // action cannot form a valid compilation-database entry).
-std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action,
-                                       std::string_view project_id) {
+std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action, std::string_view project_id) {
   std::vector<std::string> arguments = command::DeBazel(action.arguments);
   const std::string_view source = FindSource(arguments);
   if (source.empty()) {
@@ -103,10 +102,8 @@ std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action,
 
 // Builds the current action records (all stamped with `project_id`) from
 // serialized aquery bytes.
-absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto,
-                                           std::string_view project_id) {
-  absl::StatusOr<std::vector<aquery::CompileAction>> actions =
-      aquery::ParseCompileActions(aquery_proto);
+absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::string_view project_id) {
+  absl::StatusOr<std::vector<aquery::CompileAction>> actions = aquery::ParseCompileActions(aquery_proto);
   if (!actions.ok()) {
     return actions.status();
   }
@@ -121,8 +118,7 @@ absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto,
 }
 
 // Projects action records into compilation-database entries.
-std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records,
-                                                    std::string_view directory) {
+std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records, std::string_view directory) {
   std::vector<cdb::CompileCommand> entries;
   entries.reserve(static_cast<std::size_t>(records.records_size()));
   for (const ActionRecord& record : records.records()) {
@@ -134,12 +130,13 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
     for (int i = 0; i < record.command_size(); ++i) {
       arguments.emplace_back(record.command(i));
     }
-    entries.push_back(cdb::CompileCommand{
-        .directory = std::string(directory),
-        .file = AbsoluteFile(directory, record.sources(0)),
-        .arguments = std::move(arguments),
-        .output = std::string(record.primary_output()),
-    });
+    entries.push_back(
+        cdb::CompileCommand{
+            .directory = std::string(directory),
+            .file = AbsoluteFile(directory, record.sources(0)),
+            .arguments = std::move(arguments),
+            .output = std::string(record.primary_output()),
+        });
   }
   return entries;
 }
@@ -154,8 +151,7 @@ absl::StatusOr<std::string> BazelExecRoot(const std::string& bazel) {
   }
   if (result->exit_code != 0) {
     return absl::UnknownError(
-        absl::StrCat("bazel info execution_root failed (exit ", result->exit_code,
-                     "): ", result->stderr_data));
+        absl::StrCat("bazel info execution_root failed (exit ", result->exit_code, "): ", result->stderr_data));
   }
   std::string root = std::move(result->stdout_data);
   while (!root.empty() && (root.back() == '\n' || root.back() == '\r' || root.back() == ' ')) {
@@ -167,27 +163,25 @@ absl::StatusOr<std::string> BazelExecRoot(const std::string& bazel) {
 // Runs `bazel aquery --output=proto` over `targets`, filtered to compile
 // mnemonics and with param files embedded, and returns the serialized
 // ActionGraphContainer bytes.
-absl::StatusOr<std::string> RunAquery(const std::vector<std::string>& targets,
-                                      const std::string& bazel) {
-  const std::string expr = absl::StrCat(
-      "mnemonic(\"CppCompile|ObjcCompile|CppModuleCompile\", ", absl::StrJoin(targets, " + "), ")");
-  const std::vector<std::string> argv = {bazel.empty() ? "bazel" : bazel, "aquery",
-                                         "--output=proto", "--include_param_files", expr};
+absl::StatusOr<std::string> RunAquery(const std::vector<std::string>& targets, const std::string& bazel) {
+  const std::string expr =
+      absl::StrCat("mnemonic(\"CppCompile|ObjcCompile|CppModuleCompile\", ", absl::StrJoin(targets, " + "), ")");
+  const std::vector<std::string> argv = {
+      bazel.empty() ? "bazel" : bazel, "aquery", "--output=proto", "--include_param_files", expr};
   absl::StatusOr<process::CommandResult> result = process::Run(argv);
   if (!result.ok()) {
     return result.status();
   }
   if (result->exit_code != 0) {
-    return absl::UnknownError(absl::StrCat("bazel aquery failed (exit ", result->exit_code,
-                                           "): ", result->stderr_data));
+    return absl::UnknownError(
+        absl::StrCat("bazel aquery failed (exit ", result->exit_code, "): ", result->stderr_data));
   }
   return std::move(result->stdout_data);
 }
 
 }  // namespace
 
-absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto,
-                                                              const Options& options) {
+absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto, const Options& options) {
   const absl::StatusOr<ActionRecords> records = BuildRecords(aquery_proto, options.project_id);
   if (!records.ok()) {
     return records.status();

@@ -46,17 +46,18 @@ TEST(ToJsonTest, SingleEntryWithArguments) {
   const std::vector<CompileCommand> entries = {
       {.directory = "/work", .file = "a.cc", .arguments = {"clang", "-c", "a.cc"}, .output = ""},
   };
-  EXPECT_THAT(ToJson(entries), Eq("[\n"
-                                  "  {\n"
-                                  "    \"directory\": \"/work\",\n"
-                                  "    \"file\": \"a.cc\",\n"
-                                  "    \"arguments\": [\n"
-                                  "      \"clang\",\n"
-                                  "      \"-c\",\n"
-                                  "      \"a.cc\"\n"
-                                  "    ]\n"
-                                  "  }\n"
-                                  "]\n"));
+  EXPECT_THAT(
+      ToJson(entries), Eq("[\n"
+                          "  {\n"
+                          "    \"directory\": \"/work\",\n"
+                          "    \"file\": \"a.cc\",\n"
+                          "    \"arguments\": [\n"
+                          "      \"clang\",\n"
+                          "      \"-c\",\n"
+                          "      \"a.cc\"\n"
+                          "    ]\n"
+                          "  }\n"
+                          "]\n"));
 }
 
 TEST(ToJsonTest, OutputFieldEmittedWhenPresent) {
@@ -85,24 +86,24 @@ TEST(ToJsonTest, EntriesAreCommaSeparated) {
       {.directory = "/w", .file = "a.cc", .arguments = {}, .output = ""},
       {.directory = "/w", .file = "b.cc", .arguments = {}, .output = ""},
   };
-  EXPECT_THAT(ToJson(entries), Eq("[\n"
-                                  "  {\n"
-                                  "    \"directory\": \"/w\",\n"
-                                  "    \"file\": \"a.cc\"\n"
-                                  "  },\n"
-                                  "  {\n"
-                                  "    \"directory\": \"/w\",\n"
-                                  "    \"file\": \"b.cc\"\n"
-                                  "  }\n"
-                                  "]\n"));
+  EXPECT_THAT(
+      ToJson(entries), Eq("[\n"
+                          "  {\n"
+                          "    \"directory\": \"/w\",\n"
+                          "    \"file\": \"a.cc\"\n"
+                          "  },\n"
+                          "  {\n"
+                          "    \"directory\": \"/w\",\n"
+                          "    \"file\": \"b.cc\"\n"
+                          "  }\n"
+                          "]\n"));
 }
 
 TEST(WriteTest, RoundTripsThroughToJson) {
   const std::vector<CompileCommand> entries = {
       {.directory = "/w", .file = "a.cc", .arguments = {"cc", "-c", "a.cc"}, .output = ""},
   };
-  const std::filesystem::path path =
-      std::filesystem::path(::testing::TempDir()) / "carve_cdb_roundtrip.json";
+  const std::filesystem::path path = std::filesystem::path(::testing::TempDir()) / "carve_cdb_roundtrip.json";
   ASSERT_THAT(Write(path, entries), IsOk());
   EXPECT_THAT(ReadFile(path), Eq(ToJson(entries)));
 }

@@ -27,8 +27,7 @@ using ::absl_testing::IsOkAndHolds;
 using ::absl_testing::StatusIs;
 
 TEST(SubcommandTest, NamesRoundTripThroughParse) {
-  for (const Subcommand cmd :
-       {Subcommand::kRefresh, Subcommand::kAggregate, Subcommand::kShard, Subcommand::kPrune}) {
+  for (const Subcommand cmd : {Subcommand::kRefresh, Subcommand::kAggregate, Subcommand::kShard, Subcommand::kPrune}) {
     EXPECT_THAT(ParseSubcommand(SubcommandName(cmd)), IsOkAndHolds(cmd));
   }
 }

@@ -46,8 +46,7 @@ struct KeyDiff {
 };
 
 // Diffs the `action_key`s in `stored` against `current_keys`.
-[[nodiscard]] KeyDiff DiffActionKeys(const ActionRecords& stored,
-                                     absl::Span<const std::string> current_keys);
+[[nodiscard]] KeyDiff DiffActionKeys(const ActionRecords& stored, absl::Span<const std::string> current_keys);
 
 // Merges freshly-built `current` records (all belonging to `project_id`) into
 // `stored`, the basis of the shared cross-project CDB. Records of OTHER projects
@@ -57,8 +56,10 @@ struct KeyDiff {
 // (a new key or a changed command) the current record is used; and own-project
 // records absent from `current` are dropped. The result is sorted by
 // (project_id, action_key) for determinism.
-[[nodiscard]] ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current,
-                                         std::string_view project_id);
+[[nodiscard]] ActionRecords MergeRecords(
+    const ActionRecords& stored,
+    const ActionRecords& current,
+    std::string_view project_id);
 
 }  // namespace carve::sidecar
 

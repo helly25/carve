@@ -21,6 +21,15 @@ repos:
       - id: buildifier
       - id: buildifier-lint
 
+  # clang-format pinned to the LLVM 22 line (matches the hermetic-llvm toolchain).
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v22.1.5
+    hooks:
+      - id: clang-format
+        # Restrict to C/C++/CUDA sources; the default types_or also includes
+        # JSON, which we do not want clang-format reformatting.
+        types_or: [c, c++, cuda]
+
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.7
     hooks:

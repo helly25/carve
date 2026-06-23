@@ -47,4 +47,4 @@ SeparateDefinitionBlocks: Always
 SortUsingDeclarations: Lexicographic
 SpaceAfterTemplateKeyword: false
 SpaceAroundPointerQualifiers: After
-Standard: c++23
+Standard: Latest
