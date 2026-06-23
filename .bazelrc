@@ -54,6 +54,11 @@ common --host_per_file_copt=llvm-project[/:]+(llvm|clang)[/:].*\.(cpp|cc|cxx)$@-
 common --per_file_copt=//carve/.*@-Werror
 common --host_per_file_copt=//carve/.*@-Werror
 
+# Enforce clang's thread-safety annotations (ABSL_GUARDED_BY / ABSL_LOCKS_EXCLUDED
+# etc.) on our own code; with -Werror above, an unguarded access is a build error.
+common --per_file_copt=//carve/.*@-Wthread-safety
+common --host_per_file_copt=//carve/.*@-Wthread-safety
+
 # Treat third-party (external repo) headers as system headers, so their warnings
 # do not trip our first-party -Werror (e.g. googletest's char8_t->char32_t under
 # clang 22, or other deps' diagnostics). Our own code stays fully warned.
@@ -104,6 +109,16 @@ common:tsan --copt -g
 common:tsan --copt -fno-omit-frame-pointer
 common:tsan --linkopt -fsanitize=thread
 common:tsan --features=tsan
+# Building the compiler-rt sanitizer runtimes from source needs the flag below
+# (the hermetic `llvm` toolchain leaves them off by default, so without it the
+# tsan link fails: "cannot open ... libclang_rt.tsan.a"). It auto-disables in the
+# exec configuration, so host tools stay uninstrumented.
+#
+# Currently commented out: with `llvm` 0.8.9 (LLVM 22.1.7) enabling it makes
+# compiler-rt's internal symbolizer fail to compile ('llvm/DebugInfo/Symbolize/
+# DIPrinter.h' file not found) and there is no opt-out flag. Re-enable this (and
+# restore the tsan CI job) once the toolchain builds the sanitizer runtime cleanly.
+# common:tsan --@llvm//config:tsan=True
 
 common:ubsan --copt -fsanitize=undefined
 common:ubsan --copt -g

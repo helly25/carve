@@ -20,7 +20,7 @@ Legend: ✅ done & tested · 🟡 partial · ⬜ not started.
 | `command` (de-Bazel argv)                                     | 🟡     | 2 of ~12 quirks (`-fno-canonical-system-headers`, `-gcc-toolchain`)   |
 | `aquery` (proto parse, param-file expand, path resolve)       | ✅     | vendored trimmed `analysis_v2.proto`                                  |
 | `sidecar` (schema, Load/Save, diff, project-scoped merge)     | ✅     | `HeaderIndex` built & persisted; `written_at` stamped                 |
-| `refresh` (in-process aquery, execroot, merge, multi-project) | 🟡     | scan-deps wired; incremental; header index + `written_at`; see M1     |
+| `refresh` (in-process aquery, execroot, merge, multi-project) | ✅     | M1 done: scan-deps, incremental, staleness, header index, `--jobs`    |
 | `scan_deps` (clang `DependencyScanningTool`)                  | ✅     | wired into `refresh`; gated linux+macos                               |
 | `cli` + `//carve:carve`                                       | 🟡     | `refresh` only; `aggregate`/`shard`/`prune` are `Unimplemented` stubs |
 | e2e harness, CI, pre-commit, hermetic-llvm, proto matchers    | ✅     |                                                                       |
@@ -34,8 +34,9 @@ Bottom line: **Layer A produces a correct-shaped CDB with header coverage and
 incremental refresh.** scan-deps is wired into `refresh`; unchanged actions
 reuse cached headers; editing a header re-scans only its owning actions;
 unresolved (unbuilt generated) headers are not cached and are retried;
-`written_at` and the persisted `HeaderIndex` are in place. The only remaining M1
-item is parallel scanning (`--jobs`, default hardware concurrency).
+`written_at` and the persisted `HeaderIndex` are in place; scanning is
+parallelized (`--jobs`). **M1 is complete.** Next: M2 (de-Bazel quirk inventory)
+and M3 (differential harness vs Hedron + clangd validation).
 
 ## Milestones (dependency-ordered)
 
@@ -48,7 +49,7 @@ Realizes incremental refresh and header coverage; everything downstream assumes 
 - ✅ Build and persist the `HeaderIndex` (header → owning `action_key`s, canonical owner = lex-min) next to the sidecar so an edited header maps to the action(s) to re-scan (design §4.4–§4.5).
 - ✅ Header-staleness invalidation: on refresh, an action whose cached header (or source) changed on disk (mtime past `written_at`) is re-scanned even though its command is unchanged, via `FindReusableRecord` + a `rescanned` set passed to `MergeRecords`. One-second granularity.
 - ✅ Missing generated headers: a failed scan leaves the record unstamped so the next refresh re-scans it (cache only a complete scan, design §4.2); `RunRefresh` returns `RefreshStats` and the binary surfaces an unresolved-headers count.
-- ⬜ Parallelize scanning across actions (`--jobs`, default hardware concurrency).
+- ✅ Parallelize scanning across actions (`--jobs`, default hardware concurrency): an `absl::Mutex`-guarded worker pool (fully thread-safety-annotated, enforced by `-Wthread-safety`). The scan decision stays serial so the sidecar is deterministic. (Runtime tsan CI is blocked by the hermetic `llvm` toolchain's sanitizer-runtime build; the `.bazelrc` `:tsan` flag is documented + commented out for when it's fixed.)
 - ✅ **Platform/optionality decision — resolved (option b).** `scan_deps` is gated linux+macos and injected into `refresh` as a `HeaderScanner`, so the core CDB still builds everywhere and header-scanning is the enhancement; the gate propagates to the `carve` binary and e2e test.
 
 Acceptance: `carve refresh` on this repo populates `headers`; editing a header invalidates only owning actions; refresh stays idempotent; unit + e2e tests cover header population, reuse, and missing-header caching.
