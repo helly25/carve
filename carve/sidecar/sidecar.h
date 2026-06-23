@@ -36,6 +36,14 @@ namespace carve::sidecar {
 // Atomically writes `records` to `path` as a binary proto.
 [[nodiscard]] absl::Status Save(const std::filesystem::path& path, const ActionRecords& records);
 
+// Loads the header index from `path`. A missing file yields an empty
+// `HeaderIndex` (it is simply rebuilt on the next refresh, not an error).
+// Returns `InvalidArgumentError` if the file exists but does not parse.
+[[nodiscard]] absl::StatusOr<HeaderIndex> LoadHeaderIndex(const std::filesystem::path& path);
+
+// Atomically writes `index` to `path` as a binary proto.
+[[nodiscard]] absl::Status SaveHeaderIndex(const std::filesystem::path& path, const HeaderIndex& index);
+
 // Partition of action keys between a stored sidecar and a current action set.
 // This is the basis of incremental refresh: `added` actions are new work,
 // `removed` actions are gone, `common` actions may be reused. All vectors are

@@ -167,5 +167,21 @@ TEST(BuildHeaderIndexTest, MapsHeadersToSortedOwners) {
                                                   schema_version: 1)pb"));
 }
 
+TEST(LoadHeaderIndexTest, MissingFileYieldsEmptyIndex) {
+  EXPECT_THAT(LoadHeaderIndex("/no/such/carve/headers-index.binpb"), IsOkAndHolds(EqualsProto("")));
+}
+
+TEST(SaveHeaderIndexTest, RoundTripsContent) {
+  const HeaderIndex index = ParseTextProtoOrDie(R"pb(owners { header_path: "a.h" action_keys: "k1" }
+                                                     schema_version: 1)pb");
+  const std::filesystem::path path =
+      std::filesystem::path(::testing::TempDir()) / "carve_header_index" / "headers-index.binpb";
+  std::filesystem::remove_all(path.parent_path());
+
+  ASSERT_THAT(SaveHeaderIndex(path, index), IsOk());
+  EXPECT_THAT(LoadHeaderIndex(path), IsOkAndHolds(EqualsProto(R"pb(owners { header_path: "a.h" action_keys: "k1" }
+                                                                   schema_version: 1)pb")));
+}
+
 }  // namespace
 }  // namespace carve::sidecar

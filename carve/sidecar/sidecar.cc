@@ -50,6 +50,25 @@ absl::Status Save(const std::filesystem::path& path, const ActionRecords& record
   return io::WriteAtomically(path, records.SerializeAsString());
 }
 
+absl::StatusOr<HeaderIndex> LoadHeaderIndex(const std::filesystem::path& path) {
+  const absl::StatusOr<std::string> bytes = io::ReadFile(path);
+  if (!bytes.ok()) {
+    if (absl::IsNotFound(bytes.status())) {
+      return HeaderIndex{};  // Not yet built: rebuilt on the next refresh.
+    }
+    return bytes.status();
+  }
+  HeaderIndex index;
+  if (!index.ParseFromString(*bytes)) {
+    return absl::InvalidArgumentError("header index is not a valid HeaderIndex proto");
+  }
+  return index;
+}
+
+absl::Status SaveHeaderIndex(const std::filesystem::path& path, const HeaderIndex& index) {
+  return io::WriteAtomically(path, index.SerializeAsString());
+}
+
 KeyDiff DiffActionKeys(const ActionRecords& stored, absl::Span<const std::string> current_keys) {
   absl::flat_hash_set<std::string_view> stored_set;
   stored_set.reserve(static_cast<std::size_t>(stored.records_size()));
