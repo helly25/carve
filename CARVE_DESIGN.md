@@ -76,14 +76,14 @@ carve prune     [--age=N]                                           # Sidecar GC
 
 Internal modules:
 
-| Module | Responsibility | Notable deps |
-| --- | --- | --- |
-| `aquery` | Spawns `bazel aquery --output=proto` (binary), parses via linked `analysis_v2.proto` | mbo subprocess helper (or std) |
-| `scan_deps` | In-process header dependency scan via `clang::tooling::dependencies::DependencyScanningTool` | clangDependencyScanning |
-| `command` | Argv normalization and de-Bazeling patches (the quirk inventory) | `absl::strings`, mbo path utils |
-| `sidecar` | Persistent action-keyed cache and bi-directional header index | protobuf, mbo atomic-write |
-| `cdb` | Atomic JSON output, merge semantics | mbo atomic-write |
-| `cli` | `absl::Flags`-driven subcommand dispatch | `absl::Flags` |
+| Module      | Responsibility                                                                               | Notable deps                    |
+| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------- |
+| `aquery`    | Spawns `bazel aquery --output=proto` (binary), parses via linked `analysis_v2.proto`         | mbo subprocess helper (or std)  |
+| `scan_deps` | In-process header dependency scan via `clang::tooling::dependencies::DependencyScanningTool` | clangDependencyScanning         |
+| `command`   | Argv normalization and de-Bazeling patches (the quirk inventory)                             | `absl::strings`, mbo path utils |
+| `sidecar`   | Persistent action-keyed cache and bi-directional header index                                | protobuf, mbo atomic-write      |
+| `cdb`       | Atomic JSON output, merge semantics                                                          | mbo atomic-write                |
+| `cli`       | `absl::Flags`-driven subcommand dispatch                                                     | `absl::Flags`                   |
 
 Each module is a self-contained Bazel package following the helly25 house layout
 (see [RULES.md](RULES.md)): `carve/<module>/` with `namespace carve::<module>`,
@@ -132,21 +132,21 @@ Failure mode to handle: generated headers that have not been built. Scan-deps re
 
 The rewrite must rederive these. The current Python script is a useful checklist; the patch logic itself is rederived from primary sources.
 
-| Quirk | Primary source for rederivation |
-| --- | --- |
-| Apple `wrapped_clang`, `__BAZEL_XCODE_*` substitutions | Bazel `tools/osx/crosstool/wrapped_clang.cc` |
-| Emscripten driver indirection | emscripten `emcc` source, EM_COMPILER_WRAPPER hook |
-| NVCC to clang flag translation | NVCC compiler driver docs, clang driver source |
-| MSVC `/showIncludes` locale strings | Ninja issue 613, public MSVC documentation |
-| ccache symlink resolution | ccache docs |
-| Windows command-line length workaround | MSDN command-line limits |
-| `//external` symlink, execroot trap | Bazel `output_directories` docs |
+| Quirk                                                                                                      | Primary source for rederivation                                                               |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Apple `wrapped_clang`, `__BAZEL_XCODE_*` substitutions                                                     | Bazel `tools/osx/crosstool/wrapped_clang.cc`                                                  |
+| Emscripten driver indirection                                                                              | emscripten `emcc` source, EM_COMPILER_WRAPPER hook                                            |
+| NVCC to clang flag translation                                                                             | NVCC compiler driver docs, clang driver source                                                |
+| MSVC `/showIncludes` locale strings                                                                        | Ninja issue 613, public MSVC documentation                                                    |
+| ccache symlink resolution                                                                                  | ccache docs                                                                                   |
+| Windows command-line length workaround                                                                     | MSDN command-line limits                                                                      |
+| `//external` symlink, execroot trap                                                                        | Bazel `output_directories` docs                                                               |
 | Execroot / absolute-path canonicalization (rewrite per-host `bazel-out`/cache paths to workspace-relative) | Bazel `output_directories` docs; required for the cross-host determinism property (section 9) |
-| `parse_headers` action filtering | Bazel cc rules source |
-| `compiler_param_file` feature disable | Bazel cc features source |
-| `layering_check` feature disable | Bazel cc features source |
-| `-fno-canonical-system-headers` strip | Clang driver source, [clangd#1004](https://github.com/clangd/clangd/issues/1004) |
-| `-gcc-toolchain` strip | [clangd#1248](https://github.com/clangd/clangd/issues/1248) |
+| `parse_headers` action filtering                                                                           | Bazel cc rules source                                                                         |
+| `compiler_param_file` feature disable                                                                      | Bazel cc features source                                                                      |
+| `layering_check` feature disable                                                                           | Bazel cc features source                                                                      |
+| `-fno-canonical-system-headers` strip                                                                      | Clang driver source, [clangd#1004](https://github.com/clangd/clangd/issues/1004)              |
+| `-gcc-toolchain` strip                                                                                     | [clangd#1248](https://github.com/clangd/clangd/issues/1248)                                   |
 
 This is roughly the full inventory. Each is a day or two of work, standalone-testable.
 
@@ -418,14 +418,14 @@ Assert on the structured data, never on a serialized blob:
 
 Concrete sequence for the first six months:
 
-| Month | Milestone |
-| --- | --- |
-| 1 | Repo bootstrap, MODULE.bazel, toolchain pin, hello-world `carve` binary, GTest wired up. **LLVM-libs linkage spike** (section 4.2): prove `DependencyScanningTool` links into a `cc_binary`. *Resolved — source-built via hermetic-llvm (`@llvm-project//clang:tooling`).* This gates months 3–4. |
-| 2 | `aquery` module + vendored proto parsing; basic `command` module with first three quirks (incl. execroot canonicalization); CDB writer. **Layer A emits a working CDB straight from aquery, no scan-deps yet.** Stand up a crude differential harness against Hedron on this repo. |
-| 3 | Sidecar persistence, action-keyed diff, scan-deps integration (single-threaded) — assuming the month-1 spike succeeded; otherwise carry the no-scan-deps Layer A and reschedule. |
-| 4 | Full quirk inventory ported, scan-deps parallelized, merge mode, Layer A feature-complete |
-| 5 | `cc_carve` rule (Layer B), integration test corpus, differential test harness hardened |
-| 6 | Public 0.1 release; begin Layer C prototype |
+| Month | Milestone                                                                                                                                                                                                                                                                                         |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Repo bootstrap, MODULE.bazel, toolchain pin, hello-world `carve` binary, GTest wired up. **LLVM-libs linkage spike** (section 4.2): prove `DependencyScanningTool` links into a `cc_binary`. *Resolved — source-built via hermetic-llvm (`@llvm-project//clang:tooling`).* This gates months 3–4. |
+| 2     | `aquery` module + vendored proto parsing; basic `command` module with first three quirks (incl. execroot canonicalization); CDB writer. **Layer A emits a working CDB straight from aquery, no scan-deps yet.** Stand up a crude differential harness against Hedron on this repo.                |
+| 3     | Sidecar persistence, action-keyed diff, scan-deps integration (single-threaded) — assuming the month-1 spike succeeded; otherwise carry the no-scan-deps Layer A and reschedule.                                                                                                                  |
+| 4     | Full quirk inventory ported, scan-deps parallelized, merge mode, Layer A feature-complete                                                                                                                                                                                                         |
+| 5     | `cc_carve` rule (Layer B), integration test corpus, differential test harness hardened                                                                                                                                                                                                            |
+| 6     | Public 0.1 release; begin Layer C prototype                                                                                                                                                                                                                                                       |
 
 This is aggressive but plausible if the implementer is focused. Real schedules slip; the layering ensures each month produces a shippable improvement. The deliberate move here is putting the riskiest dependency (LLVM linkage) and the most valuable validation artifact (differential harness) at the *front*, so a bad surprise lands in month 1–2 rather than month 3–5.
 

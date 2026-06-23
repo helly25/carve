@@ -60,6 +60,13 @@ file is corrected.
 - Shell: Google shell style, formatted with `shfmt`, linted with `shellcheck`.
 - Starlark/Bazel: formatted and linted with `buildifier` (`--warnings=all`).
 
+## Markdown
+
+- Tables are vertically aligned: every column padded to a consistent width,
+  pipes lined up, the `---` separator row matched, `:---`/`---:` markers kept.
+  Enforced by `tools/align_md_tables.py` via the `align-md-tables` pre-commit
+  hook; run `pre-commit run align-md-tables -a` (or the script directly) to fix.
+
 ## Tests
 
 - GTest, colocated with the unit. Every change is covered by a committed test at

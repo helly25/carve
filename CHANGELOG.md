@@ -120,6 +120,9 @@ follows [SemVer](https://semver.org/).
 - Add `docs/IMPLEMENTATION_PLAN.md`: current status snapshot and a
   dependency-ordered milestone breakdown (M1 wire scan-deps into refresh →
   M6 release), superseding the design's month-by-month sketch (§11).
+- Vertically align all Markdown tables and enforce it: add
+  `tools/align_md_tables.py` and an `align-md-tables` pre-commit hook
+  (fence-aware, idempotent, preserves alignment markers).
 - CI: persist Bazel disk + repository caches across runs (`actions/cache` over
   `--disk_cache`/`--repository_cache`; the from-source LLVM build is ~12 min cold,
   cacheable), and make the `done` gate self-check that every workflow job is

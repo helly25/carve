@@ -12,23 +12,23 @@ Last reviewed: 2026-06-23.
 
 Legend: ✅ done & tested · 🟡 partial · ⬜ not started.
 
-| Capability | State | Notes |
-| --- | --- | --- |
-| `io` (atomic write, read) | ✅ | |
-| `process` (subprocess capture) | ✅ | POSIX; Windows later |
-| `cdb` (model + JSON + atomic write) | ✅ | deterministic output |
-| `command` (de-Bazel argv) | 🟡 | 2 of ~12 quirks (`-fno-canonical-system-headers`, `-gcc-toolchain`) |
-| `aquery` (proto parse, param-file expand, path resolve) | ✅ | vendored trimmed `analysis_v2.proto` |
-| `sidecar` (schema, Load/Save, diff, project-scoped merge) | ✅ | `HeaderIndex` defined but unused; `written_at` unset |
-| `refresh` (in-process aquery, execroot, merge, multi-project) | 🟡 | works; **does not call scan-deps** → headers never populated |
-| `scan_deps` (clang `DependencyScanningTool`) | 🟡 | works standalone; **not wired into `refresh`**; gated linux+macos |
-| `cli` + `//carve:carve` | 🟡 | `refresh` only; `aggregate`/`shard`/`prune` are `Unimplemented` stubs |
-| e2e harness, CI, pre-commit, hermetic-llvm, proto matchers | ✅ | |
-| Layer B (`cc_carve` rule) | ⬜ | |
-| Layer C (aspect + shards) | ⬜ | |
-| Differential harness vs Hedron / clangd validation | ⬜ | design wanted this early |
-| Distribution (`.bcr/`, prebuilt binaries, release) | ⬜ | |
-| Windows | ⬜ | |
+| Capability                                                    | State | Notes                                                                 |
+| ------------------------------------------------------------- | ----- | --------------------------------------------------------------------- |
+| `io` (atomic write, read)                                     | ✅     |                                                                       |
+| `process` (subprocess capture)                                | ✅     | POSIX; Windows later                                                  |
+| `cdb` (model + JSON + atomic write)                           | ✅     | deterministic output                                                  |
+| `command` (de-Bazel argv)                                     | 🟡     | 2 of ~12 quirks (`-fno-canonical-system-headers`, `-gcc-toolchain`)   |
+| `aquery` (proto parse, param-file expand, path resolve)       | ✅     | vendored trimmed `analysis_v2.proto`                                  |
+| `sidecar` (schema, Load/Save, diff, project-scoped merge)     | ✅     | `HeaderIndex` defined but unused; `written_at` unset                  |
+| `refresh` (in-process aquery, execroot, merge, multi-project) | 🟡     | works; **does not call scan-deps** → headers never populated          |
+| `scan_deps` (clang `DependencyScanningTool`)                  | 🟡     | works standalone; **not wired into `refresh`**; gated linux+macos     |
+| `cli` + `//carve:carve`                                       | 🟡     | `refresh` only; `aggregate`/`shard`/`prune` are `Unimplemented` stubs |
+| e2e harness, CI, pre-commit, hermetic-llvm, proto matchers    | ✅     |                                                                       |
+| Layer B (`cc_carve` rule)                                     | ⬜     |                                                                       |
+| Layer C (aspect + shards)                                     | ⬜     |                                                                       |
+| Differential harness vs Hedron / clangd validation            | ⬜     | design wanted this early                                              |
+| Distribution (`.bcr/`, prebuilt binaries, release)            | ⬜     |                                                                       |
+| Windows                                                       | ⬜     |                                                                       |
 
 Bottom line: **Layer A produces a correct-shaped CDB end-to-end, but without
 header coverage or real incrementality** — because scan-deps is built and proven
