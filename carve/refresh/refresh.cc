@@ -48,7 +48,7 @@ bool IsSourceFile(std::string_view arg) {
   if (dot == std::string_view::npos) {
     return false;
   }
-  const std::string_view ext = arg.substr(dot + 1);
+  std::string_view ext = arg.substr(dot + 1);
   static const absl::flat_hash_set<std::string_view>* const kSourceExt =
       new absl::flat_hash_set<std::string_view>{"c", "cc", "cpp", "cxx", "c++", "cu", "m", "mm"};
   return kSourceExt->contains(ext);
@@ -83,7 +83,7 @@ std::string AbsoluteFile(std::string_view directory, std::string_view source) {
 // be identified (such an action cannot form a valid compilation-database entry).
 std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action, std::string_view project_id) {
   std::vector<std::string> arguments = command::DeBazel(action.arguments);
-  const std::string_view source = FindSource(arguments);
+  std::string_view source = FindSource(arguments);
   if (source.empty()) {
     return std::nullopt;
   }
@@ -128,8 +128,8 @@ absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::s
 void ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderScanner& scanner) {
   std::vector<std::string> argv;
   argv.reserve(static_cast<std::size_t>(record.command_size()));
-  for (int i = 0; i < record.command_size(); ++i) {
-    argv.emplace_back(record.command(i));
+  for (std::string_view arg : record.command()) {
+    argv.emplace_back(arg);
   }
   absl::StatusOr<std::vector<std::string>> headers = scanner(argv, directory);
   if (headers.ok()) {
@@ -167,13 +167,13 @@ bool CachedScanIsStale(const ActionRecord& stored, std::string_view directory) {
   if (stored.written_at() == 0) {
     return true;
   }
-  for (int i = 0; i < stored.sources_size(); ++i) {
-    if (ModifiedAfter(AbsoluteFile(directory, stored.sources(i)), stored.written_at())) {
+  for (std::string_view source : stored.sources()) {
+    if (ModifiedAfter(AbsoluteFile(directory, source), stored.written_at())) {
       return true;
     }
   }
-  for (int i = 0; i < stored.headers_size(); ++i) {
-    if (ModifiedAfter(std::filesystem::path(std::string(stored.headers(i))), stored.written_at())) {
+  for (std::string_view header : stored.headers()) {
+    if (ModifiedAfter(std::filesystem::path(header), stored.written_at())) {
       return true;
     }
   }
@@ -190,8 +190,8 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
     }
     std::vector<std::string> arguments;
     arguments.reserve(static_cast<std::size_t>(record.command_size()));
-    for (int i = 0; i < record.command_size(); ++i) {
-      arguments.emplace_back(record.command(i));
+    for (std::string_view arg : record.command()) {
+      arguments.emplace_back(arg);
     }
     entries.push_back(
         cdb::CompileCommand{
