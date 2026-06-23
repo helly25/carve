@@ -28,6 +28,7 @@ cc_library(
         "//carve/process:process_cc",
         "//carve/sidecar:carve_cc_proto",
         "//carve/sidecar:sidecar_cc",
+        "@abseil-cpp//absl/algorithm:container",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
     ],

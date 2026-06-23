@@ -36,6 +36,7 @@ cc_library(
     hdrs = ["sidecar.h"],
     implementation_deps = [
         "//carve/io:io_cc",
+        "@abseil-cpp//absl/algorithm:container",
         "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/container:flat_hash_map",
     ],
