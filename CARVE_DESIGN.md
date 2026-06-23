@@ -412,6 +412,10 @@ Assert on the structured data, never on a serialized blob:
 
 ## 11. Phasing
 
+> Current status and the up-to-date, dependency-ordered task breakdown live in
+> [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md). The month-by-month
+> sketch below is the original design-time roadmap, kept for context.
+
 Concrete sequence for the first six months:
 
 | Month | Milestone |

@@ -117,6 +117,9 @@ follows [SemVer](https://semver.org/).
 - Remove the orphaned `third_party/llvm/` overlay (the obsolete prebuilt-libs
   BUILD overlay) and correct the now-stale `--config=clang` comment in
   `.bazelrc`, finishing the hermetic-llvm switch cleanup.
+- Add `docs/IMPLEMENTATION_PLAN.md`: current status snapshot and a
+  dependency-ordered milestone breakdown (M1 wire scan-deps into refresh →
+  M6 release), superseding the design's month-by-month sketch (§11).
 - CI: persist Bazel disk + repository caches across runs (`actions/cache` over
   `--disk_cache`/`--repository_cache`; the from-source LLVM build is ~12 min cold,
   cacheable), and make the `done` gate self-check that every workflow job is
