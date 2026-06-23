@@ -74,19 +74,18 @@ absl::Status RunRefreshFromFlags() {
   if (!targets_flag.empty()) {
     targets = absl::StrSplit(targets_flag, ',', absl::SkipEmpty());
   }
-  MBO_ASSIGN_OR_RETURN(
-      const carve::refresh::RefreshStats stats, carve::refresh::RunRefresh(
-                                                    carve::refresh::FileOptions{
-                                                        .aquery_proto_path = absl::GetFlag(FLAGS_aquery_proto),
-                                                        .targets = std::move(targets),
-                                                        .bazel_path = absl::GetFlag(FLAGS_bazel),
-                                                        .output_path = absl::GetFlag(FLAGS_output),
-                                                        .directory = absl::GetFlag(FLAGS_directory),
-                                                        .sidecar_path = absl::GetFlag(FLAGS_sidecar),
-                                                        .project_id = absl::GetFlag(FLAGS_project_id),
-                                                        .scanner = carve::scan_deps::ScanDependencies,
-                                                        .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
-                                                    }));
+  const carve::refresh::FileOptions options{
+      .aquery_proto_path = absl::GetFlag(FLAGS_aquery_proto),
+      .targets = std::move(targets),
+      .bazel_path = absl::GetFlag(FLAGS_bazel),
+      .output_path = absl::GetFlag(FLAGS_output),
+      .directory = absl::GetFlag(FLAGS_directory),
+      .sidecar_path = absl::GetFlag(FLAGS_sidecar),
+      .project_id = absl::GetFlag(FLAGS_project_id),
+      .scanner = carve::scan_deps::ScanDependencies,
+      .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
+  };
+  MBO_ASSIGN_OR_RETURN(const carve::refresh::RefreshStats stats, carve::refresh::RunRefresh(options));
   std::cerr << absl::StreamFormat(
       "carve: wrote %d entries (%d scanned, %d reused)\n", stats.entries, stats.scanned, stats.reused);
   if (stats.unresolved > 0) {
