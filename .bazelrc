@@ -54,6 +54,11 @@ common --host_per_file_copt=llvm-project[/:]+(llvm|clang)[/:].*\.(cpp|cc|cxx)$@-
 common --per_file_copt=//carve/.*@-Werror
 common --host_per_file_copt=//carve/.*@-Werror
 
+# Enforce clang's thread-safety annotations (ABSL_GUARDED_BY / ABSL_LOCKS_EXCLUDED
+# etc.) on our own code; with -Werror above, an unguarded access is a build error.
+common --per_file_copt=//carve/.*@-Wthread-safety
+common --host_per_file_copt=//carve/.*@-Wthread-safety
+
 # Treat third-party (external repo) headers as system headers, so their warnings
 # do not trip our first-party -Werror (e.g. googletest's char8_t->char32_t under
 # clang 22, or other deps' diagnostics). Our own code stays fully warned.

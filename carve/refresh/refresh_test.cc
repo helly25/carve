@@ -27,6 +27,7 @@
 #include "absl/status/status.h"
 #include "absl/status/status_matchers.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "carve/cdb/cdb.h"
@@ -570,6 +571,62 @@ TEST(RunRefreshTest, FailedScanIsRetriedOnTheNextRefresh) {
                                                                                    headers: "resolved.h"
                                                                                    written_at: 555
                                                                                  })pb")));
+}
+
+TEST(RunRefreshTest, ScansActionsInParallel) {
+  // Four actions scanned with jobs=4. The scanner derives each action's header
+  // from its own source operand (no shared state), so it is safe to call
+  // concurrently and the result is deterministic regardless of thread
+  // interleaving. Run under tsan in CI to exercise the worker pool.
+  analysis::ActionGraphContainer container;
+  for (std::string_view key : {"k1", "k2", "k3", "k4"}) {
+    analysis::Action* compile = AddCompile(container, key);
+    compile->add_arguments("clang");
+    compile->add_arguments("-c");
+    compile->add_arguments(absl::StrCat(key, ".cc"));
+  }
+  FileOptions options = TempRefresh("carve_parallel", container);
+  options.jobs = 4;
+  options.scanner = [](absl::Span<const std::string> argv,
+                       std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    return std::vector<std::string>{absl::StrCat(argv.back(), ".h")};  // e.g. "k1.cc" -> "k1.cc.h"
+  };
+
+  ASSERT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::scanned, Eq(4))));
+  EXPECT_THAT(
+      sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(
+                                               R"pb(records {
+                                                      action_key: "k1"
+                                                      sources: "k1.cc"
+                                                      command: "clang"
+                                                      command: "-c"
+                                                      command: "k1.cc"
+                                                      headers: "k1.cc.h"
+                                                    }
+                                                    records {
+                                                      action_key: "k2"
+                                                      sources: "k2.cc"
+                                                      command: "clang"
+                                                      command: "-c"
+                                                      command: "k2.cc"
+                                                      headers: "k2.cc.h"
+                                                    }
+                                                    records {
+                                                      action_key: "k3"
+                                                      sources: "k3.cc"
+                                                      command: "clang"
+                                                      command: "-c"
+                                                      command: "k3.cc"
+                                                      headers: "k3.cc.h"
+                                                    }
+                                                    records {
+                                                      action_key: "k4"
+                                                      sources: "k4.cc"
+                                                      command: "clang"
+                                                      command: "-c"
+                                                      command: "k4.cc"
+                                                      headers: "k4.cc.h"
+                                                    })pb")));
 }
 
 }  // namespace

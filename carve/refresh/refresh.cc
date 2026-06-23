@@ -15,6 +15,7 @@
 
 #include "carve/refresh/refresh.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -23,15 +24,18 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include "absl/algorithm/container.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/synchronization/mutex.h"
 #include "carve/aquery/aquery.h"
 #include "carve/cdb/cdb.h"
 #include "carve/command/command.h"
@@ -136,6 +140,79 @@ bool ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderS
     record.add_headers(header);
   }
   return true;
+}
+
+// Scans a fixed set of action records concurrently. Each worker repeatedly
+// claims the next unscanned record and scans it; `workers` threads run at once
+// (the scanner must be safe to call concurrently — see HeaderScanner).
+//
+// The single mutex `mu_` controls exactly two members: the claim cursor `next_`
+// and the failure list `failed_`. Everything else is immutable after
+// construction. A record's own contents are mutated WITHOUT the lock: that is
+// safe because `ClaimNext` hands each index to exactly one worker, so no two
+// workers ever touch the same record (and distinct repeated-field elements have
+// disjoint storage — the parent field is never resized here).
+class ParallelScan {
+ public:
+  ParallelScan(std::vector<ActionRecord*> records, std::string_view directory, const HeaderScanner& scanner)
+      : records_(std::move(records)), directory_(directory), scanner_(scanner) {}
+
+  // Scans every record using min(`workers`, size) threads (>=1), and returns the
+  // ascending indices of records whose scan failed.
+  std::vector<std::size_t> Run(unsigned workers) ABSL_LOCKS_EXCLUDED(mu_) {
+    if (!records_.empty()) {
+      const unsigned threads = std::min<unsigned>(std::max(workers, 1U), records_.size());
+      if (threads == 1) {
+        Worker();  // Serial: run on the calling thread, spawn nothing.
+      } else {
+        std::vector<std::thread> pool;
+        pool.reserve(threads);
+        for (unsigned i = 0; i < threads; ++i) {
+          pool.emplace_back([this] { Worker(); });
+        }
+        for (std::thread& thread : pool) {
+          thread.join();
+        }
+      }
+    }
+    absl::MutexLock lock(mu_);
+    std::sort(failed_.begin(), failed_.end());
+    return failed_;
+  }
+
+ private:
+  // Returns the next record index to scan, or nullopt once all are claimed.
+  std::optional<std::size_t> ClaimNext() ABSL_LOCKS_EXCLUDED(mu_) {
+    absl::MutexLock lock(mu_);
+    if (next_ >= records_.size()) {
+      return std::nullopt;
+    }
+    return next_++;
+  }
+
+  // Worker loop: claim and scan records until none remain.
+  void Worker() ABSL_LOCKS_EXCLUDED(mu_) {
+    while (const std::optional<std::size_t> index = ClaimNext()) {
+      // Sole owner of records_[*index] (see class comment): scan without the lock.
+      if (!ScanHeaders(*records_[*index], directory_, scanner_)) {
+        absl::MutexLock lock(mu_);
+        failed_.push_back(*index);
+      }
+    }
+  }
+
+  const std::vector<ActionRecord*> records_;
+  const std::string_view directory_;
+  const HeaderScanner& scanner_;
+
+  absl::Mutex mu_;
+  std::size_t next_ ABSL_GUARDED_BY(mu_) = 0;             // Next record index to claim.
+  std::vector<std::size_t> failed_ ABSL_GUARDED_BY(mu_);  // Indices of records whose scan failed.
+};
+
+// Resolves the configured `jobs` to a worker-thread count (>=1).
+unsigned WorkerCount(int jobs) {
+  return jobs > 0 ? static_cast<unsigned>(jobs) : 1U;
 }
 
 // True if `path` exists and was last modified strictly after `since` (unix
@@ -256,41 +333,52 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
 
   if (options.sidecar_path.empty()) {
     // No cache: scan every action (when a scanner is configured).
-    RefreshStats stats;
+    std::vector<ActionRecord*> to_scan;
     if (options.scanner) {
       for (ActionRecord& record : *current.mutable_records()) {
-        ++stats.scanned;
-        if (!ScanHeaders(record, directory, options.scanner)) {
-          ++stats.unresolved;
-        }
+        to_scan.push_back(&record);
       }
     }
+    const std::vector<std::size_t> failed =
+        ParallelScan(to_scan, directory, options.scanner).Run(WorkerCount(options.jobs));
+
     const std::vector<cdb::CompileCommand> entries = EntriesFromRecords(current, directory);
+    RefreshStats stats;
     stats.entries = static_cast<int>(entries.size());
+    stats.scanned = static_cast<int>(to_scan.size());
+    stats.unresolved = static_cast<int>(failed.size());
     MBO_RETURN_IF_ERROR(cdb::Write(options.output_path, entries));
     return stats;
   }
 
   MBO_ASSIGN_OR_RETURN(const ActionRecords stored, sidecar::Load(options.sidecar_path));
 
-  // Scan added/changed actions, plus unchanged actions whose cached headers (or
-  // source) have been edited on disk since the scan was recorded. Truly
-  // unchanged actions reuse the stored record's cached headers via MergeRecords
-  // below — the incremental-refresh win. `rescanned` records which keys carry a
-  // fresh scan so the merge prefers the current record over the stale cache.
-  absl::flat_hash_set<std::string_view> rescanned;
-  absl::flat_hash_set<std::string_view> unresolved;
+  // Decide serially which actions need a (re)scan: added/changed actions, plus
+  // unchanged actions whose cached headers (or source) were edited on disk since
+  // the scan was recorded. Truly unchanged actions reuse the stored record's
+  // cached headers via MergeRecords below — the incremental-refresh win.
+  std::vector<ActionRecord*> to_scan;
   if (options.scanner) {
     for (ActionRecord& record : *current.mutable_records()) {
       const ActionRecord* reusable = sidecar::FindReusableRecord(stored, record, options.project_id);
-      if (reusable != nullptr && !CachedScanIsStale(*reusable, directory)) {
-        continue;  // Unchanged and still fresh: reuse the cached headers.
-      }
-      rescanned.insert(record.action_key());
-      if (!ScanHeaders(record, directory, options.scanner)) {
-        unresolved.insert(record.action_key());
+      if (reusable == nullptr || CachedScanIsStale(*reusable, directory)) {
+        to_scan.push_back(&record);
       }
     }
+  }
+
+  // Scan them in parallel, then build the key sets serially. `rescanned` records
+  // which keys carry a fresh scan so the merge prefers the current record over
+  // the stale cache; `unresolved` records which scans failed.
+  const std::vector<std::size_t> failed =
+      ParallelScan(to_scan, directory, options.scanner).Run(WorkerCount(options.jobs));
+  absl::flat_hash_set<std::string_view> rescanned;
+  for (const ActionRecord* record : to_scan) {
+    rescanned.insert(record->action_key());
+  }
+  absl::flat_hash_set<std::string_view> unresolved;
+  for (const std::size_t index : failed) {
+    unresolved.insert(to_scan[index]->action_key());
   }
 
   ActionRecords merged = sidecar::MergeRecords(stored, current, options.project_id, rescanned);

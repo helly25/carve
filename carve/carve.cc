@@ -17,6 +17,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "absl/flags/flag.h"
@@ -54,6 +55,7 @@ ABSL_FLAG(
     "",
     "Project identifier; scopes the sidecar merge so projects sharing a "
     "compilation database do not clobber each other.");
+ABSL_FLAG(int, jobs, 0, "Parallel scan-deps worker threads; 0 means use the hardware concurrency.");
 
 namespace {
 
@@ -74,6 +76,12 @@ absl::Status RunRefreshFromFlags() {
   if (!targets_flag.empty()) {
     targets = absl::StrSplit(targets_flag, ',', absl::SkipEmpty());
   }
+  // 0 (the default) means "decide here": use all hardware threads, falling back
+  // to serial when the count is unknown.
+  int jobs = absl::GetFlag(FLAGS_jobs);
+  if (jobs <= 0) {
+    jobs = static_cast<int>(std::thread::hardware_concurrency());
+  }
   const carve::refresh::FileOptions options{
       .aquery_proto_path = absl::GetFlag(FLAGS_aquery_proto),
       .targets = std::move(targets),
@@ -84,6 +92,7 @@ absl::Status RunRefreshFromFlags() {
       .project_id = absl::GetFlag(FLAGS_project_id),
       .scanner = carve::scan_deps::ScanDependencies,
       .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
+      .jobs = jobs,
   };
   MBO_ASSIGN_OR_RETURN(const carve::refresh::RefreshStats stats, carve::refresh::RunRefresh(options));
   std::cerr << absl::StreamFormat(

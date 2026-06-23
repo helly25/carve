@@ -34,6 +34,10 @@ namespace carve::refresh {
 // stays free of a hard libclang/platform dependency and is unit-testable with a
 // fake; the production scanner is `scan_deps::ScanDependencies`. An empty
 // scanner leaves records' `headers` unset.
+//
+// MUST be safe to call concurrently from multiple threads: `refresh` scans
+// actions in parallel (see `FileOptions::jobs`). `scan_deps::ScanDependencies`
+// qualifies — it builds its own dependency-scanning service per call.
 using HeaderScanner = std::function<
     absl::StatusOr<std::vector<std::string>>(absl::Span<const std::string> argv, std::string_view directory)>;
 
@@ -68,6 +72,7 @@ struct FileOptions {
   HeaderScanner scanner;             // Scans added/changed actions; empty = no header scanning.
   Clock clock;                       // Stamps written_at on this project's records each
                                      // refresh (for prune/GC); empty leaves it unset.
+  int jobs = 0;                      // Parallel scan-deps worker threads; <=0 means serial.
 };
 
 // Outcome counts from a refresh, for reporting to the user.
