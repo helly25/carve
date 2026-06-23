@@ -37,6 +37,11 @@ bazel_dep(name = "helly25_mbo", version = "0.11.1", repo_name = "com_helly25_mbo
 # Test-only deps.
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 
+# Proto test matchers (EqualsProto/Partially/WhenDeserialized) that upstream
+# protobuf does not ship. Used to assert on proto data structurally instead of
+# comparing serialized strings. See CARVE_DESIGN.md section 9.1.
+bazel_dep(name = "helly25_proto", version = "1.2.1", dev_dependency = True, repo_name = "com_helly25_proto")
+
 # C++ toolchain AND linkable clang libraries from hermeticbuild/hermetic-llvm
 # (the `llvm` BCR module), pinned to LLVM 22.1.7. One ecosystem provides both:
 #   - a fully hermetic clang cross-compilation toolchain whose C++ standard
