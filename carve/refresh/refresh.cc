@@ -39,6 +39,7 @@
 #include "carve/process/process.h"
 #include "carve/sidecar/carve.pb.h"
 #include "carve/sidecar/sidecar.h"
+#include "mbo/status/status_macros.h"
 
 namespace carve::refresh {
 namespace {
@@ -109,12 +110,9 @@ std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action, std:
 // Builds the current action records (all stamped with `project_id`, no headers
 // yet) from serialized aquery bytes.
 absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::string_view project_id) {
-  absl::StatusOr<std::vector<aquery::CompileAction>> actions = aquery::ParseCompileActions(aquery_proto);
-  if (!actions.ok()) {
-    return actions.status();
-  }
+  MBO_ASSIGN_OR_RETURN(const std::vector<aquery::CompileAction> actions, aquery::ParseCompileActions(aquery_proto));
   ActionRecords records;
-  for (const aquery::CompileAction& action : *actions) {
+  for (const aquery::CompileAction& action : actions) {
     std::optional<ActionRecord> record = MakeRecord(action, project_id);
     if (record.has_value()) {
       *records.add_records() = *std::move(record);
@@ -201,16 +199,13 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
 // Returns `bazel info execution_root` (trimmed): the directory clangd should
 // resolve each entry's relative paths against.
 absl::StatusOr<std::string> BazelExecRoot(const std::string& bazel) {
-  absl::StatusOr<process::CommandResult> result =
-      process::Run({bazel.empty() ? "bazel" : bazel, "info", "execution_root"});
-  if (!result.ok()) {
-    return result.status();
-  }
-  if (result->exit_code != 0) {
+  MBO_ASSIGN_OR_RETURN(
+      process::CommandResult result, process::Run({bazel.empty() ? "bazel" : bazel, "info", "execution_root"}));
+  if (result.exit_code != 0) {
     return absl::UnknownError(
-        absl::StrCat("bazel info execution_root failed (exit ", result->exit_code, "): ", result->stderr_data));
+        absl::StrCat("bazel info execution_root failed (exit ", result.exit_code, "): ", result.stderr_data));
   }
-  std::string root = std::move(result->stdout_data);
+  std::string root = std::move(result.stdout_data);
   while (!root.empty() && (root.back() == '\n' || root.back() == '\r' || root.back() == ' ')) {
     root.pop_back();
   }
@@ -225,25 +220,18 @@ absl::StatusOr<std::string> RunAquery(const std::vector<std::string>& targets, c
       absl::StrCat("mnemonic(\"CppCompile|ObjcCompile|CppModuleCompile\", ", absl::StrJoin(targets, " + "), ")");
   const std::vector<std::string> argv = {
       bazel.empty() ? "bazel" : bazel, "aquery", "--output=proto", "--include_param_files", expr};
-  absl::StatusOr<process::CommandResult> result = process::Run(argv);
-  if (!result.ok()) {
-    return result.status();
+  MBO_ASSIGN_OR_RETURN(process::CommandResult result, process::Run(argv));
+  if (result.exit_code != 0) {
+    return absl::UnknownError(absl::StrCat("bazel aquery failed (exit ", result.exit_code, "): ", result.stderr_data));
   }
-  if (result->exit_code != 0) {
-    return absl::UnknownError(
-        absl::StrCat("bazel aquery failed (exit ", result->exit_code, "): ", result->stderr_data));
-  }
-  return std::move(result->stdout_data);
+  return std::move(result.stdout_data);
 }
 
 }  // namespace
 
 absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto, const Options& options) {
-  const absl::StatusOr<ActionRecords> records = BuildRecords(aquery_proto, options.project_id);
-  if (!records.ok()) {
-    return records.status();
-  }
-  return EntriesFromRecords(*records, options.directory);
+  MBO_ASSIGN_OR_RETURN(const ActionRecords records, BuildRecords(aquery_proto, options.project_id));
+  return EntriesFromRecords(records, options.directory);
 }
 
 absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
@@ -255,48 +243,35 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
   } else {
     return absl::InvalidArgumentError("refresh needs --aquery_proto or --targets");
   }
-  if (!proto.ok()) {
-    return proto.status();
-  }
+  MBO_RETURN_IF_ERROR(proto.status());  // status() so a large proto is not copied.
 
   // Default the entry directory to the execroot so exec-relative argv resolve.
   std::string directory = options.directory;
   if (directory.empty()) {
-    absl::StatusOr<std::string> execroot = BazelExecRoot(options.bazel_path);
-    if (!execroot.ok()) {
-      return execroot.status();
-    }
-    directory = *std::move(execroot);
+    MBO_ASSIGN_OR_RETURN(std::string execroot, BazelExecRoot(options.bazel_path));
+    directory = std::move(execroot);
   }
 
-  absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id);
-  if (!current.ok()) {
-    return current.status();
-  }
+  MBO_ASSIGN_OR_RETURN(ActionRecords current, BuildRecords(*proto, options.project_id));
 
   if (options.sidecar_path.empty()) {
     // No cache: scan every action (when a scanner is configured).
     RefreshStats stats;
     if (options.scanner) {
-      for (ActionRecord& record : *current->mutable_records()) {
+      for (ActionRecord& record : *current.mutable_records()) {
         ++stats.scanned;
         if (!ScanHeaders(record, directory, options.scanner)) {
           ++stats.unresolved;
         }
       }
     }
-    const std::vector<cdb::CompileCommand> entries = EntriesFromRecords(*current, directory);
+    const std::vector<cdb::CompileCommand> entries = EntriesFromRecords(current, directory);
     stats.entries = static_cast<int>(entries.size());
-    if (const absl::Status written = cdb::Write(options.output_path, entries); !written.ok()) {
-      return written;
-    }
+    MBO_RETURN_IF_ERROR(cdb::Write(options.output_path, entries));
     return stats;
   }
 
-  const absl::StatusOr<ActionRecords> stored = sidecar::Load(options.sidecar_path);
-  if (!stored.ok()) {
-    return stored.status();
-  }
+  MBO_ASSIGN_OR_RETURN(const ActionRecords stored, sidecar::Load(options.sidecar_path));
 
   // Scan added/changed actions, plus unchanged actions whose cached headers (or
   // source) have been edited on disk since the scan was recorded. Truly
@@ -306,8 +281,8 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
   absl::flat_hash_set<std::string_view> rescanned;
   absl::flat_hash_set<std::string_view> unresolved;
   if (options.scanner) {
-    for (ActionRecord& record : *current->mutable_records()) {
-      const ActionRecord* reusable = sidecar::FindReusableRecord(*stored, record, options.project_id);
+    for (ActionRecord& record : *current.mutable_records()) {
+      const ActionRecord* reusable = sidecar::FindReusableRecord(stored, record, options.project_id);
       if (reusable != nullptr && !CachedScanIsStale(*reusable, directory)) {
         continue;  // Unchanged and still fresh: reuse the cached headers.
       }
@@ -318,7 +293,7 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
     }
   }
 
-  ActionRecords merged = sidecar::MergeRecords(*stored, *current, options.project_id, rescanned);
+  ActionRecords merged = sidecar::MergeRecords(stored, current, options.project_id, rescanned);
 
   // Stamp written_at on the rows this refresh owns — added, changed, and reused
   // alike — so prune can GC projects that have stopped refreshing. Other
@@ -335,9 +310,7 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
     }
   }
 
-  if (const absl::Status saved = sidecar::Save(options.sidecar_path, merged); !saved.ok()) {
-    return saved;
-  }
+  MBO_RETURN_IF_ERROR(sidecar::Save(options.sidecar_path, merged));
 
   // Persist the header -> owning-action index alongside the entries sidecar
   // (the design's second cache file). It is a deterministic projection of the
@@ -346,19 +319,15 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
   // CARVE_DESIGN.md sections 4.4-4.5.
   const std::filesystem::path index_path =
       std::filesystem::path(options.sidecar_path).parent_path() / "headers-index.binpb";
-  if (const absl::Status saved = sidecar::SaveHeaderIndex(index_path, sidecar::BuildHeaderIndex(merged)); !saved.ok()) {
-    return saved;
-  }
+  MBO_RETURN_IF_ERROR(sidecar::SaveHeaderIndex(index_path, sidecar::BuildHeaderIndex(merged)));
 
   const std::vector<cdb::CompileCommand> entries = EntriesFromRecords(merged, directory);
   RefreshStats stats;
   stats.entries = static_cast<int>(entries.size());
   stats.scanned = static_cast<int>(rescanned.size());
   stats.unresolved = static_cast<int>(unresolved.size());
-  stats.reused = current->records_size() - stats.scanned;  // Own-project actions not rescanned.
-  if (const absl::Status written = cdb::Write(options.output_path, entries); !written.ok()) {
-    return written;
-  }
+  stats.reused = current.records_size() - stats.scanned;  // Own-project actions not rescanned.
+  MBO_RETURN_IF_ERROR(cdb::Write(options.output_path, entries));
   return stats;
 }
 
