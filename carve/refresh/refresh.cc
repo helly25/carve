@@ -74,16 +74,10 @@ std::string AbsoluteFile(std::string_view directory, std::string_view source) {
 }
 
 // Maps one compile action to an ActionRecord, de-Bazeling its argv and detecting
-// the source operand. When `scanner` is set, the action's header dependencies
-// are scanned (against `directory`) and stored; a scan failure leaves `headers`
-// unset (the action is simply not header-cached). Returns nullopt when no source
-// can be identified (such an action cannot form a valid compilation-database
-// entry).
-std::optional<ActionRecord> MakeRecord(
-    const aquery::CompileAction& action,
-    std::string_view project_id,
-    std::string_view directory,
-    const HeaderScanner& scanner) {
+// the source operand. Headers are NOT scanned here; `RunRefresh` scans only the
+// added/changed records (see `ScanHeaders`). Returns nullopt when no source can
+// be identified (such an action cannot form a valid compilation-database entry).
+std::optional<ActionRecord> MakeRecord(const aquery::CompileAction& action, std::string_view project_id) {
   std::vector<std::string> arguments = command::DeBazel(action.arguments);
   const std::string_view source = FindSource(arguments);
   if (source.empty()) {
@@ -92,14 +86,6 @@ std::optional<ActionRecord> MakeRecord(
   ActionRecord record;
   record.set_action_key(action.action_key);
   record.add_sources(std::string(source));  // Copies before `arguments` is moved.
-  if (scanner) {
-    absl::StatusOr<std::vector<std::string>> headers = scanner(arguments, directory);
-    if (headers.ok()) {
-      for (const std::string& header : *headers) {
-        record.add_headers(header);
-      }
-    }
-  }
   for (std::string& arg : arguments) {
     record.add_command(std::move(arg));
   }
@@ -115,25 +101,38 @@ std::optional<ActionRecord> MakeRecord(
   return record;
 }
 
-// Builds the current action records (all stamped with `project_id`) from
-// serialized aquery bytes, scanning headers via `scanner` when set.
-absl::StatusOr<ActionRecords> BuildRecords(
-    std::string_view aquery_proto,
-    std::string_view project_id,
-    std::string_view directory,
-    const HeaderScanner& scanner) {
+// Builds the current action records (all stamped with `project_id`, no headers
+// yet) from serialized aquery bytes.
+absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::string_view project_id) {
   absl::StatusOr<std::vector<aquery::CompileAction>> actions = aquery::ParseCompileActions(aquery_proto);
   if (!actions.ok()) {
     return actions.status();
   }
   ActionRecords records;
   for (const aquery::CompileAction& action : *actions) {
-    std::optional<ActionRecord> record = MakeRecord(action, project_id, directory, scanner);
+    std::optional<ActionRecord> record = MakeRecord(action, project_id);
     if (record.has_value()) {
       *records.add_records() = *std::move(record);
     }
   }
   return records;
+}
+
+// Scans `record`'s command for header dependencies (against `directory`) and
+// stores them on the record. A scan failure leaves `headers` unset (the action
+// is simply not header-cached this run).
+void ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderScanner& scanner) {
+  std::vector<std::string> argv;
+  argv.reserve(static_cast<std::size_t>(record.command_size()));
+  for (int i = 0; i < record.command_size(); ++i) {
+    argv.emplace_back(record.command(i));
+  }
+  absl::StatusOr<std::vector<std::string>> headers = scanner(argv, directory);
+  if (headers.ok()) {
+    for (const std::string& header : *headers) {
+      record.add_headers(header);
+    }
+  }
 }
 
 // Projects action records into compilation-database entries.
@@ -201,8 +200,7 @@ absl::StatusOr<std::string> RunAquery(const std::vector<std::string>& targets, c
 }  // namespace
 
 absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto, const Options& options) {
-  const absl::StatusOr<ActionRecords> records =
-      BuildRecords(aquery_proto, options.project_id, options.directory, options.scanner);
+  const absl::StatusOr<ActionRecords> records = BuildRecords(aquery_proto, options.project_id);
   if (!records.ok()) {
     return records.status();
   }
@@ -232,25 +230,40 @@ absl::Status RunRefresh(const FileOptions& options) {
     directory = *std::move(execroot);
   }
 
-  absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id, directory, options.scanner);
+  absl::StatusOr<ActionRecords> current = BuildRecords(*proto, options.project_id);
   if (!current.ok()) {
     return current.status();
   }
 
-  ActionRecords merged;
   if (options.sidecar_path.empty()) {
-    merged = *std::move(current);
-  } else {
-    const absl::StatusOr<ActionRecords> stored = sidecar::Load(options.sidecar_path);
-    if (!stored.ok()) {
-      return stored.status();
+    // No cache: scan every action (when a scanner is configured).
+    if (options.scanner) {
+      for (ActionRecord& record : *current->mutable_records()) {
+        ScanHeaders(record, directory, options.scanner);
+      }
     }
-    merged = sidecar::MergeRecords(*stored, *current, options.project_id);
-    if (const absl::Status saved = sidecar::Save(options.sidecar_path, merged); !saved.ok()) {
-      return saved;
+    return cdb::Write(options.output_path, EntriesFromRecords(*current, directory));
+  }
+
+  const absl::StatusOr<ActionRecords> stored = sidecar::Load(options.sidecar_path);
+  if (!stored.ok()) {
+    return stored.status();
+  }
+
+  // Scan only added/changed actions; unchanged ones reuse the stored record's
+  // cached headers via MergeRecords below — the incremental-refresh win.
+  if (options.scanner) {
+    for (ActionRecord& record : *current->mutable_records()) {
+      if (!sidecar::HasMatchingRecord(*stored, record, options.project_id)) {
+        ScanHeaders(record, directory, options.scanner);
+      }
     }
   }
 
+  const ActionRecords merged = sidecar::MergeRecords(*stored, *current, options.project_id);
+  if (const absl::Status saved = sidecar::Save(options.sidecar_path, merged); !saved.ok()) {
+    return saved;
+  }
   return cdb::Write(options.output_path, EntriesFromRecords(merged, directory));
 }
 

@@ -33,6 +33,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "mbo/proto/matchers.h"
+#include "mbo/proto/parse_text_proto.h"
 
 namespace carve::refresh {
 namespace {
@@ -41,6 +42,7 @@ using ::absl_testing::IsOk;
 using ::absl_testing::IsOkAndHolds;
 using ::absl_testing::StatusIs;
 using ::mbo::proto::EqualsProto;
+using ::mbo::proto::ParseTextProtoOrDie;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Eq;
@@ -262,6 +264,42 @@ TEST(RunRefreshTest, PopulatesHeadersFromTheInjectedScanner) {
                                                                                    command: "-c"
                                                                                    command: "src/a.cc"
                                                                                  })pb")));
+}
+
+TEST(RunRefreshTest, UnchangedActionIsNotRescanned) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_scan_skip", container);
+
+  // Seed a matching record (same key+command) with a cached header.
+  const ActionRecords seed = ParseTextProtoOrDie(
+      R"pb(records {
+             action_key: "k1"
+             sources: "src/a.cc"
+             command: "clang"
+             command: "-c"
+             command: "src/a.cc"
+             headers: "cached.h"
+           })pb");
+  ASSERT_THAT(sidecar::Save(options.sidecar_path, seed), IsOk());
+
+  int scans = 0;
+  options.scanner = [&scans](
+                        absl::Span<const std::string> /*argv*/,
+                        std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    ++scans;
+    return std::vector<std::string>{"FRESH.h"};
+  };
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The unchanged action was not re-scanned, and its cached header is preserved
+  // (not replaced by the scanner's "FRESH.h").
+  EXPECT_THAT(scans, Eq(0));
+  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(seed)));
 }
 
 }  // namespace
