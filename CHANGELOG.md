@@ -123,6 +123,11 @@ follows [SemVer](https://semver.org/).
 - Vertically align all Markdown tables and enforce it: add
   `tools/align_md_tables.py` and an `align-md-tables` pre-commit hook
   (fence-aware, idempotent, preserves alignment markers).
+- `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
+  owning-action index (owners sorted, lex-min canonical) from action records —
+  the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).
+  sidecar tests now build proto data from `ParseTextProtoOrDie`/`EqualsProto`
+  text literals instead of imperative setters.
 - CI: persist Bazel disk + repository caches across runs (`actions/cache` over
   `--disk_cache`/`--repository_cache`; the from-source LLVM build is ~12 min cold,
   cacheable), and make the `done` gate self-check that every workflow job is

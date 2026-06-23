@@ -24,6 +24,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "mbo/proto/matchers.h"
+#include "mbo/proto/parse_text_proto.h"
 
 namespace carve::sidecar {
 namespace {
@@ -31,36 +32,30 @@ namespace {
 using ::absl_testing::IsOk;
 using ::absl_testing::IsOkAndHolds;
 using ::mbo::proto::EqualsProto;
+using ::mbo::proto::ParseTextProtoOrDie;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Field;
 using ::testing::IsEmpty;
 
-ActionRecords MakeRecords(const std::vector<std::string>& keys) {
-  ActionRecords records;
-  for (const std::string& key : keys) {
-    records.add_records()->set_action_key(key);
-  }
-  return records;
-}
-
 TEST(LoadTest, MissingFileYieldsEmptyRecords) {
-  EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"), IsOkAndHolds(EqualsProto(ActionRecords())));
+  EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"), IsOkAndHolds(EqualsProto("")));
 }
 
 TEST(SaveLoadTest, RoundTripsContent) {
-  ActionRecords records = MakeRecords({"k1"});
-  records.mutable_records(0)->add_sources("a.cc");
-  records.mutable_records(0)->add_command("clang");
+  const ActionRecords records =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" sources: "a.cc" command: "clang" })pb");
   const std::filesystem::path path = std::filesystem::path(::testing::TempDir()) / "carve_sidecar" / "entries.binpb";
   std::filesystem::remove_all(path.parent_path());
 
   ASSERT_THAT(Save(path, records), IsOk());
-  EXPECT_THAT(Load(path), IsOkAndHolds(EqualsProto(records)));
+  EXPECT_THAT(
+      Load(path), IsOkAndHolds(EqualsProto(R"pb(records { action_key: "k1" sources: "a.cc" command: "clang" })pb")));
 }
 
 TEST(DiffActionKeysTest, PartitionsAddedRemovedCommon) {
-  const ActionRecords stored = MakeRecords({"k1", "k2"});
+  const ActionRecords stored = ParseTextProtoOrDie(R"pb(records { action_key: "k1" }
+                                                        records { action_key: "k2" })pb");
   const std::vector<std::string> current = {"k2", "k3"};
   EXPECT_THAT(
       DiffActionKeys(stored, current),
@@ -70,90 +65,88 @@ TEST(DiffActionKeysTest, PartitionsAddedRemovedCommon) {
 }
 
 TEST(DiffActionKeysTest, DeduplicatesAndSortsCurrentKeys) {
-  const ActionRecords stored = MakeRecords({});
   const std::vector<std::string> current = {"b", "a", "b"};
   EXPECT_THAT(
-      DiffActionKeys(stored, current), AllOf(
-                                           Field(&KeyDiff::added, ElementsAre("a", "b")),
-                                           Field(&KeyDiff::removed, IsEmpty()), Field(&KeyDiff::common, IsEmpty())));
-}
-
-ActionRecord* AddRecord(ActionRecords& records, std::string_view key, const std::vector<std::string>& command) {
-  ActionRecord* record = records.add_records();
-  record->set_action_key(std::string(key));
-  for (const std::string& arg : command) {
-    record->add_command(arg);
-  }
-  return record;
+      DiffActionKeys(ActionRecords(), current),
+      AllOf(
+          Field(&KeyDiff::added, ElementsAre("a", "b")), Field(&KeyDiff::removed, IsEmpty()),
+          Field(&KeyDiff::common, IsEmpty())));
 }
 
 TEST(MergeRecordsTest, UnchangedActionKeepsStoredCachedFields) {
-  ActionRecords stored;
-  AddRecord(stored, "k1", {"clang", "-c", "a.cc"})->add_headers("cached.h");
-
-  ActionRecords current;
-  AddRecord(current, "k1", {"clang", "-c", "a.cc"});  // Same command, no headers.
+  const ActionRecords stored = ParseTextProtoOrDie(
+      R"pb(records { action_key: "k1" command: "clang" command: "-c" command: "a.cc" headers: "cached.h" })pb");
+  // Same command, no headers.
+  const ActionRecords current =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "-c" command: "a.cc" })pb");
 
   // The stored record (with its cached header) is preserved verbatim.
   EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(stored));
 }
 
 TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
-  ActionRecords stored;
-  AddRecord(stored, "k1", {"clang", "old"})->add_headers("cached.h");
-
-  ActionRecords current;
-  AddRecord(current, "k1", {"clang", "new"});
+  const ActionRecords stored =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "old" headers: "cached.h" })pb");
+  const ActionRecords current =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "new" })pb");
 
   EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(current));
 }
 
 TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
-  ActionRecords stored;
-  AddRecord(stored, "k1", {"clang"});  // Absent from current -> removed.
+  // k1 is absent from current -> removed.
+  const ActionRecords stored = ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" })pb");
+  const ActionRecords current = ParseTextProtoOrDie(R"pb(records { action_key: "k3" command: "clang" }
+                                                         records { action_key: "k2" command: "clang" })pb");
 
-  ActionRecords current;
-  AddRecord(current, "k3", {"clang"});
-  AddRecord(current, "k2", {"clang"});
-
-  ActionRecords expected;
-  AddRecord(expected, "k2", {"clang"});
-  AddRecord(expected, "k3", {"clang"});
-
-  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(expected));
+  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(R"pb(records { action_key: "k2" command: "clang" }
+                                                                  records { action_key: "k3" command: "clang" })pb"));
 }
 
 TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
-  ActionRecords stored;
-  AddRecord(stored, "k1", {"clang", "a"})->set_project_id("A");
-  AddRecord(stored, "k2", {"clang", "b"})->set_project_id("B");
-
+  const ActionRecords stored = ParseTextProtoOrDie(
+      R"pb(records { action_key: "k1" command: "clang" command: "a" project_id: "A" }
+           records { action_key: "k2" command: "clang" command: "b" project_id: "B" })pb");
   // Refresh project A: k1's command changed; B must be left alone.
-  ActionRecords current;
-  AddRecord(current, "k1", {"clang", "a2"})->set_project_id("A");
+  const ActionRecords current =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "a2" project_id: "A" })pb");
 
-  ActionRecords expected;
-  AddRecord(expected, "k1", {"clang", "a2"})->set_project_id("A");
-  AddRecord(expected, "k2", {"clang", "b"})->set_project_id("B");
-
-  EXPECT_THAT(MergeRecords(stored, current, "A"), EqualsProto(expected));
+  EXPECT_THAT(
+      MergeRecords(stored, current, "A"),
+      EqualsProto(R"pb(records { action_key: "k1" command: "clang" command: "a2" project_id: "A" }
+                       records { action_key: "k2" command: "clang" command: "b" project_id: "B" })pb"));
 }
 
 TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) {
-  ActionRecords stored;
-  AddRecord(stored, "k1", {"clang"})->set_project_id("A");
-  AddRecord(stored, "k2", {"clang"})->set_project_id("A");
-  AddRecord(stored, "k3", {"clang"})->set_project_id("B");
-
+  const ActionRecords stored = ParseTextProtoOrDie(
+      R"pb(records { action_key: "k1" command: "clang" project_id: "A" }
+           records { action_key: "k2" command: "clang" project_id: "A" }
+           records { action_key: "k3" command: "clang" project_id: "B" })pb");
   // Refresh project A keeps only k1; k2 (own, removed) is dropped, k3 (B) stays.
-  ActionRecords current;
-  AddRecord(current, "k1", {"clang"})->set_project_id("A");
+  const ActionRecords current =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" project_id: "A" })pb");
 
-  ActionRecords expected;
-  AddRecord(expected, "k1", {"clang"})->set_project_id("A");
-  AddRecord(expected, "k3", {"clang"})->set_project_id("B");
+  EXPECT_THAT(
+      MergeRecords(stored, current, "A"),
+      EqualsProto(R"pb(records { action_key: "k1" command: "clang" project_id: "A" }
+                       records { action_key: "k3" command: "clang" project_id: "B" })pb"));
+}
 
-  EXPECT_THAT(MergeRecords(stored, current, "A"), EqualsProto(expected));
+TEST(BuildHeaderIndexTest, EmptyRecordsYieldEmptyIndexWithSchemaVersion) {
+  EXPECT_THAT(BuildHeaderIndex(ActionRecords()), EqualsProto(R"pb(schema_version: 1)pb"));
+}
+
+TEST(BuildHeaderIndexTest, MapsHeadersToSortedOwners) {
+  const ActionRecords records = ParseTextProtoOrDie(
+      R"pb(records { action_key: "k2" headers: "b.h" headers: "a.h" }
+           records { action_key: "k1" headers: "a.h" })pb");
+
+  // a.h is owned by k1 and k2 (sorted, k1 canonical); b.h only by k2; owners
+  // sorted by header_path.
+  EXPECT_THAT(
+      BuildHeaderIndex(records), EqualsProto(R"pb(owners { header_path: "a.h" action_keys: "k1" action_keys: "k2" }
+                                                  owners { header_path: "b.h" action_keys: "k2" }
+                                                  schema_version: 1)pb"));
 }
 
 }  // namespace
