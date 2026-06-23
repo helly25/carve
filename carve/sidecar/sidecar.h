@@ -16,6 +16,7 @@
 #ifndef CARVE_SIDECAR_SIDECAR_H_
 #define CARVE_SIDECAR_SIDECAR_H_
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -60,6 +61,18 @@ struct KeyDiff {
     const ActionRecords& stored,
     const ActionRecords& current,
     std::string_view project_id);
+
+// Schema version stamped into a freshly built HeaderIndex; bump when the index
+// layout changes so stale sidecars can be detected and rebuilt.
+inline constexpr std::uint32_t kHeaderIndexSchemaVersion = 1;
+
+// Builds the header -> owning-action index from `records`: every header in a
+// record's `headers` maps to that record's `action_key`. Within each
+// `HeaderOwners`, `action_keys` is sorted (the lex-min is the canonical owner),
+// and `owners` is sorted by `header_path`. Deterministic for a given input.
+// This is what lets an edited header be mapped to the action(s) to re-scan
+// (CARVE_DESIGN.md section 4.5).
+[[nodiscard]] HeaderIndex BuildHeaderIndex(const ActionRecords& records);
 
 }  // namespace carve::sidecar
 

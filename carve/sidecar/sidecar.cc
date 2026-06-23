@@ -20,6 +20,8 @@
 #include <string>
 #include <string_view>
 
+#include "absl/container/btree_map.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
@@ -118,6 +120,29 @@ ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& cur
         return lhs->action_key() < rhs->action_key();
       });
   return merged;
+}
+
+HeaderIndex BuildHeaderIndex(const ActionRecords& records) {
+  // btree containers keep the index deterministic: owners sorted by header_path,
+  // action_keys sorted (lex-min first = canonical owner). Keys are views into
+  // `records`, which outlives this function.
+  absl::btree_map<std::string_view, absl::btree_set<std::string_view>> owners;
+  for (const ActionRecord& record : records.records()) {
+    for (int i = 0; i < record.headers_size(); ++i) {
+      owners[record.headers(i)].insert(record.action_key());
+    }
+  }
+
+  HeaderIndex index;
+  index.set_schema_version(kHeaderIndexSchemaVersion);
+  for (const auto& [header_path, action_keys] : owners) {
+    HeaderOwners* entry = index.add_owners();
+    entry->set_header_path(header_path);
+    for (const std::string_view action_key : action_keys) {
+      entry->add_action_keys(action_key);
+    }
+  }
+  return index;
 }
 
 }  // namespace carve::sidecar
