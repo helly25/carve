@@ -36,6 +36,7 @@ cc_library(
         "//carve/cdb:cdb_cc",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:span",
     ],
 )
 
@@ -52,6 +53,8 @@ cc_test(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:status_matchers",
         "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:span",
+        "@com_helly25_proto//mbo/proto:matchers_cc",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

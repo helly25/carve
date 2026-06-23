@@ -123,6 +123,12 @@ follows [SemVer](https://semver.org/).
 - Vertically align all Markdown tables and enforce it: add
   `tools/align_md_tables.py` and an `align-md-tables` pre-commit hook
   (fence-aware, idempotent, preserves alignment markers).
+- M1 keystone: `carve/refresh` populates each record's `headers` via an injected
+  `HeaderScanner` (DI so `refresh` stays cross-platform and unit-testable with a
+  fake); the `carve` binary wires the real `scan_deps::ScanDependencies`, whose
+  linux+macos gate propagates to the binary and e2e test. Dogfooded:
+  `carve refresh --targets=//carve/cdb:cdb_cc` captures the source's headers
+  into the sidecar via in-process scan-deps.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

@@ -28,6 +28,7 @@
 #include "absl/strings/str_split.h"
 #include "carve/cli/cli.h"
 #include "carve/refresh/refresh.h"
+#include "carve/scan_deps/scan_deps.h"
 
 ABSL_FLAG(
     std::string,
@@ -79,6 +80,7 @@ absl::Status RunRefreshFromFlags() {
           .directory = absl::GetFlag(FLAGS_directory),
           .sidecar_path = absl::GetFlag(FLAGS_sidecar),
           .project_id = absl::GetFlag(FLAGS_project_id),
+          .scanner = carve::scan_deps::ScanDependencies,
       });
 }
 
