@@ -16,6 +16,7 @@
 #ifndef CARVE_REFRESH_REFRESH_H_
 #define CARVE_REFRESH_REFRESH_H_
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -35,6 +36,11 @@ namespace carve::refresh {
 // scanner leaves records' `headers` unset.
 using HeaderScanner = std::function<
     absl::StatusOr<std::vector<std::string>>(absl::Span<const std::string> argv, std::string_view directory)>;
+
+// Returns the current time in unix seconds. Injected so `refresh` stamps
+// `written_at` deterministically in tests; the production clock reads the wall
+// clock. An empty clock leaves `written_at` unset.
+using Clock = std::function<std::int64_t()>;
 
 // Inputs that shape the produced compilation database.
 struct Options {
@@ -60,6 +66,8 @@ struct FileOptions {
   std::string sidecar_path;          // Action-records sidecar; empty disables it.
   std::string project_id;            // See Options::project_id.
   HeaderScanner scanner;             // Scans added/changed actions; empty = no header scanning.
+  Clock clock;                       // Stamps written_at on this project's records each
+                                     // refresh (for prune/GC); empty leaves it unset.
 };
 
 // Obtains the aquery proto — by reading `aquery_proto_path` if set, otherwise by

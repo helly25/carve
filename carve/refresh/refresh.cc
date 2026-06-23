@@ -15,6 +15,8 @@
 
 #include "carve/refresh/refresh.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -260,7 +262,20 @@ absl::Status RunRefresh(const FileOptions& options) {
     }
   }
 
-  const ActionRecords merged = sidecar::MergeRecords(*stored, *current, options.project_id);
+  ActionRecords merged = sidecar::MergeRecords(*stored, *current, options.project_id);
+
+  // Stamp written_at on the rows this refresh owns — added, changed, and reused
+  // alike — so prune can GC projects that have stopped refreshing. Other
+  // projects' rows keep their own timestamps. See CARVE_DESIGN.md section 4.4.
+  if (options.clock) {
+    const std::int64_t now = options.clock();
+    for (ActionRecord& record : *merged.mutable_records()) {
+      if (record.project_id() == options.project_id) {
+        record.set_written_at(now);
+      }
+    }
+  }
+
   if (const absl::Status saved = sidecar::Save(options.sidecar_path, merged); !saved.ok()) {
     return saved;
   }
