@@ -164,8 +164,9 @@ follows [SemVer](https://semver.org/).
   added/changed actions across a worker pool (the scan *decision* stays serial,
   so the sidecar is deterministic). The pool is a small `absl::Mutex`-guarded
   type with full thread-safety annotations, enforced at compile time by
-  `-Wthread-safety` (first-party `-Werror`) and at runtime by a new Linux tsan CI
-  job over the pure-C++ targets. Completes M1.
+  `-Wthread-safety` (first-party `-Werror`). (A runtime tsan CI job is not wired
+  up: the hermetic `llvm` toolchain cannot build the compiler-rt sanitizer
+  runtime; see the commented-out `:tsan` config in `.bazelrc`.) Completes M1.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

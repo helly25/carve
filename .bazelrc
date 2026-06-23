@@ -109,11 +109,16 @@ common:tsan --copt -g
 common:tsan --copt -fno-omit-frame-pointer
 common:tsan --linkopt -fsanitize=thread
 common:tsan --features=tsan
-# The hermetic `llvm` toolchain only builds the compiler-rt sanitizer runtimes
-# (libclang_rt.tsan{,_cxx}) when asked; without this the tsan link fails with
-# "cannot open ... libclang_rt.tsan.a". The flag auto-disables in the exec
-# configuration, so host tools stay uninstrumented.
-common:tsan --@llvm//config:tsan=True
+# Building the compiler-rt sanitizer runtimes from source needs the flag below
+# (the hermetic `llvm` toolchain leaves them off by default, so without it the
+# tsan link fails: "cannot open ... libclang_rt.tsan.a"). It auto-disables in the
+# exec configuration, so host tools stay uninstrumented.
+#
+# Currently commented out: with `llvm` 0.8.9 (LLVM 22.1.7) enabling it makes
+# compiler-rt's internal symbolizer fail to compile ('llvm/DebugInfo/Symbolize/
+# DIPrinter.h' file not found) and there is no opt-out flag. Re-enable this (and
+# restore the tsan CI job) once the toolchain builds the sanitizer runtime cleanly.
+# common:tsan --@llvm//config:tsan=True
 
 common:ubsan --copt -fsanitize=undefined
 common:ubsan --copt -g
