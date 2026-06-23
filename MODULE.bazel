@@ -22,7 +22,6 @@ See CARVE_DESIGN.md for the architecture.
 module(
     name = "helly25_carve",
     version = "0.0.1",
-    repo_name = "com_helly25_carve",
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
@@ -32,7 +31,7 @@ bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "abseil-cpp", version = "20260107.1")
 bazel_dep(name = "protobuf", version = "35.0")
-bazel_dep(name = "helly25_mbo", version = "0.11.1", repo_name = "com_helly25_mbo")
+bazel_dep(name = "helly25_mbo", version = "0.11.1")
 
 # Test-only deps.
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
@@ -40,7 +39,7 @@ bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
 # Proto test matchers (EqualsProto/Partially/WhenDeserialized) that upstream
 # protobuf does not ship. Used to assert on proto data structurally instead of
 # comparing serialized strings. See CARVE_DESIGN.md section 9.1.
-bazel_dep(name = "helly25_proto", version = "1.2.1", dev_dependency = True, repo_name = "com_helly25_proto")
+bazel_dep(name = "helly25_proto", version = "1.2.1", dev_dependency = True)
 
 # C++ toolchain AND linkable clang libraries from hermeticbuild/hermetic-llvm
 # (the `llvm` BCR module), pinned to LLVM 22.1.7. One ecosystem provides both:

@@ -33,13 +33,13 @@ size. See [CARVE_DESIGN.md](CARVE_DESIGN.md) section 3.1.
 
 ```bash
 # Layer A: single-shot tool.
-bazel run @com_helly25_carve//:refresh
+bazel run @helly25_carve//:refresh
 
 # Layer B: CDB as a Bazel build artifact.
 bazel build //:compile_commands
 
 # Layer C: aspect-driven, per-action shards (opt-in).
-bazel build //:compile_commands --@com_helly25_carve//rules:use_aspect=True
+bazel build //:compile_commands --@helly25_carve//rules:use_aspect=True
 ```
 
 ## Build requirements
