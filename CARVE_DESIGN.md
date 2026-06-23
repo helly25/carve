@@ -375,6 +375,31 @@ Concentric rings:
 4. **Differential tests.** Run rewrite and existing tool against the same workspace; diff output. Acceptable as a one-off validation harness, not in CI.
 5. **Property tests.** Idempotency (refresh twice in a row produces identical sidecar and CDB), determinism (refresh under stable input produces identical output across runs and across hosts of the same platform). **Note:** cross-host determinism holds *only after* execroot/absolute-path canonicalization (section 4.3) — raw aquery command lines embed per-host cache paths (`/home/<user>/.cache/bazel/...`) and are not byte-identical across machines. The property test must run on canonicalized output, and the canonicalization patch is a prerequisite, not an optional quirk.
 
+### 9.1 Assertion strategy: match the model, not the serialization
+
+Assert on the structured data, never on a serialized blob:
+
+- **Proto data (sidecar records; any future proto model).** Use the helly25/proto
+  matchers (`@com_helly25_proto//mbo/proto:matchers_cc`, namespace `mbo::proto`) —
+  `EqualsProto`, `Partially(EqualsProto(...))`, `WhenDeserialized`,
+  `IgnoringRepeatedFieldOrdering` — never `Eq(msg.SerializeAsString())`. They give
+  field-level diffs on failure and accept text-proto literals for expectations.
+  Plain C++ structs (e.g. `cdb::CompileCommand`) use stock gmock `ElementsAre`/
+  `Field` for the same reason — assert fields, not strings.
+- **`compile_commands.json` is output, not a test surface.** It is the *only*
+  interface clangd consumes (no proto channel), and `cdb::ToJson` is
+  byte-deterministic by design. So the serializer's exact bytes are pinned with
+  exact-string golden tests (ring 2), and byte-stable e2e/idempotency (ring 5)
+  diff the whole file — neither needs a JSON matcher.
+- **Semantic JSON comparison is a differential-only need (ring 4).** Diffing
+  carve's CDB against a *different* producer (Hedron) means key/array order and
+  whitespace differ. Get that comparison by parsing the JSON back into the proto
+  model and reusing the proto matchers (`IgnoringRepeatedFieldOrdering` /
+  `Partially`), or with off-the-shelf `jq -S` / `jd` in the one-off harness —
+  never a carve-local JSON comparator. A JSON-native matcher, if ever needed,
+  belongs in mbo (its `mbo/json` would need a parser first; today it only
+  builds/serializes).
+
 ## 10. Open questions
 
 - **Aquery proto vendoring (decided, not open).** `analysis_v2.proto` is not published as a bzlmod module; it lives in `bazelbuild/bazel/src/main/protobuf` and its `import "build.proto"` pulls in a further chain (`stardoc_output.proto`, ...). carve consumes only the aquery action graph, never cquery, so we vendor a **trimmed, self-contained** copy at `carve/third_party/bazel/analysis_v2.proto`: the `ConfiguredTarget`/`CqueryResult` messages and the `build.proto` import they need are removed, every other message is byte-for-byte upstream. This avoids vendoring the whole proto chain. **Version-couple the vendored copy to our Bazel pin** (note the v1→v2 id type change, `string`→`uint64`, gated by `--incompatible_proto_output_v2`) and re-vendor on every Bazel bump — a recurring maintenance task, not a one-time setup.
