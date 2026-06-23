@@ -32,9 +32,9 @@ Legend: ✅ done & tested · 🟡 partial · ⬜ not started.
 
 Bottom line: **Layer A produces a correct-shaped CDB with header coverage and
 incremental refresh.** scan-deps is wired into `refresh`; unchanged actions
-reuse cached headers; `written_at` and the persisted `HeaderIndex` are in place.
-Remaining M1 hardening: the missing-generated-header guard, parallel scanning
-(`--jobs`), and header-staleness invalidation (edited header → re-scan owners).
+reuse cached headers; editing a header re-scans only its owning actions;
+`written_at` and the persisted `HeaderIndex` are in place. Remaining M1
+hardening: the missing-generated-header guard and parallel scanning (`--jobs`).
 
 ## Milestones (dependency-ordered)
 
@@ -45,7 +45,7 @@ Realizes incremental refresh and header coverage; everything downstream assumes 
 - ✅ Reuse on unchanged actions: `MergeRecords` keeps cached headers, and `refresh` re-scans only added/changed actions (`HasMatchingRecord`). (#10)
 - ✅ Set `ActionRecord.written_at` via an injected clock (deterministic in tests) — unblocks `prune`. (#11)
 - ✅ Build and persist the `HeaderIndex` (header → owning `action_key`s, canonical owner = lex-min) next to the sidecar so an edited header maps to the action(s) to re-scan (design §4.4–§4.5).
-- ⬜ Header-staleness invalidation: on refresh, an action whose cached header changed on disk (mtime past `written_at`) must be re-scanned even though its command is unchanged.
+- ✅ Header-staleness invalidation: on refresh, an action whose cached header (or source) changed on disk (mtime past `written_at`) is re-scanned even though its command is unchanged, via `FindReusableRecord` + a `rescanned` set passed to `MergeRecords`. One-second granularity.
 - ⬜ Missing generated headers: cache only when no headers are missing (design §4.2); surface a count.
 - ⬜ Parallelize scanning across actions (`--jobs`, default hardware concurrency).
 - ✅ **Platform/optionality decision — resolved (option b).** `scan_deps` is gated linux+macos and injected into `refresh` as a `HeaderScanner`, so the core CDB still builds everywhere and header-scanning is the enhancement; the gate propagates to the `carve` binary and e2e test.

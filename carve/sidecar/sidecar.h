@@ -19,8 +19,10 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
@@ -61,21 +63,24 @@ struct KeyDiff {
 // `stored`, the basis of the shared cross-project CDB. Records of OTHER projects
 // are preserved untouched. Within `project_id`: a stored record whose key AND
 // command match a current record is kept — preserving cached fields (e.g.
-// scan-deps-resolved headers) the current record does not yet carry; otherwise
-// (a new key or a changed command) the current record is used; and own-project
-// records absent from `current` are dropped. The result is sorted by
-// (project_id, action_key) for determinism.
+// scan-deps-resolved headers) the current record does not yet carry — UNLESS the
+// current record's `action_key` is in `rescanned`, in which case the current
+// record is authoritative (it was just re-scanned, e.g. because a cached header
+// changed on disk) and is used as-is. Otherwise (a new key or a changed command)
+// the current record is used; and own-project records absent from `current` are
+// dropped. The result is sorted by (project_id, action_key) for determinism.
 [[nodiscard]] ActionRecords MergeRecords(
     const ActionRecords& stored,
     const ActionRecords& current,
-    std::string_view project_id);
+    std::string_view project_id,
+    const absl::flat_hash_set<std::string_view>& rescanned);
 
-// True if `stored` already holds a record in `project_id` with the same
-// `action_key` AND command as `candidate` — i.e. `candidate` is unchanged and
-// `MergeRecords` will reuse the stored record, so its cached fields (resolved
-// headers) need not be recomputed. Lets a caller skip re-scanning unchanged
-// actions.
-[[nodiscard]] bool HasMatchingRecord(
+// Returns the stored record in `project_id` whose `action_key` AND command match
+// `candidate` — the record `MergeRecords` would reuse, letting a caller read its
+// cached fields (resolved headers, `written_at`) to decide whether they are
+// still valid — or nullptr if no such record exists (a new or changed action).
+// The pointer is valid for the lifetime of `stored`.
+[[nodiscard]] const ActionRecord* FindReusableRecord(
     const ActionRecords& stored,
     const ActionRecord& candidate,
     std::string_view project_id);

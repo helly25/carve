@@ -78,10 +78,10 @@ KeyDiff DiffActionKeys(const ActionRecords& stored, absl::Span<const std::string
   const absl::flat_hash_set<std::string_view> current_set(current_keys.begin(), current_keys.end());
 
   KeyDiff diff;
-  for (const std::string_view key : current_set) {
+  for (std::string_view key : current_set) {
     (stored_set.contains(key) ? diff.common : diff.added).emplace_back(key);
   }
-  for (const std::string_view key : stored_set) {
+  for (std::string_view key : stored_set) {
     if (!current_set.contains(key)) {
       diff.removed.emplace_back(key);
     }
@@ -95,20 +95,16 @@ KeyDiff DiffActionKeys(const ActionRecords& stored, absl::Span<const std::string
 namespace {
 
 bool SameCommand(const ActionRecord& lhs, const ActionRecord& rhs) {
-  if (lhs.command_size() != rhs.command_size()) {
-    return false;
-  }
-  for (int i = 0; i < lhs.command_size(); ++i) {
-    if (lhs.command(i) != rhs.command(i)) {
-      return false;
-    }
-  }
-  return true;
+  return std::equal(lhs.command().begin(), lhs.command().end(), rhs.command().begin(), rhs.command().end());
 }
 
 }  // namespace
 
-ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current, std::string_view project_id) {
+ActionRecords MergeRecords(
+    const ActionRecords& stored,
+    const ActionRecords& current,
+    std::string_view project_id,
+    const absl::flat_hash_set<std::string_view>& rescanned) {
   ActionRecords merged;
   // Records of other projects pass through untouched; index our project's
   // stored records by key for reuse.
@@ -123,10 +119,10 @@ ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& cur
 
   for (const ActionRecord& cur : current.records()) {
     const auto it = stored_own.find(cur.action_key());
-    if (it != stored_own.end() && SameCommand(*it->second, cur)) {
-      *merged.add_records() = *it->second;  // Unchanged: keep cached fields.
+    if (it != stored_own.end() && SameCommand(*it->second, cur) && !rescanned.contains(cur.action_key())) {
+      *merged.add_records() = *it->second;  // Unchanged & still fresh: keep cached fields.
     } else {
-      *merged.add_records() = cur;  // Added or changed.
+      *merged.add_records() = cur;  // Added, changed, or re-scanned: current is authoritative.
     }
   }
 
@@ -141,14 +137,17 @@ ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& cur
   return merged;
 }
 
-bool HasMatchingRecord(const ActionRecords& stored, const ActionRecord& candidate, std::string_view project_id) {
+const ActionRecord* FindReusableRecord(
+    const ActionRecords& stored,
+    const ActionRecord& candidate,
+    std::string_view project_id) {
   for (const ActionRecord& record : stored.records()) {
     if (record.project_id() == project_id && record.action_key() == candidate.action_key()
         && SameCommand(record, candidate)) {
-      return true;
+      return &record;
     }
   }
-  return false;
+  return nullptr;
 }
 
 HeaderIndex BuildHeaderIndex(const ActionRecords& records) {
@@ -157,8 +156,8 @@ HeaderIndex BuildHeaderIndex(const ActionRecords& records) {
   // `records`, which outlives this function.
   absl::btree_map<std::string_view, absl::btree_set<std::string_view>> owners;
   for (const ActionRecord& record : records.records()) {
-    for (int i = 0; i < record.headers_size(); ++i) {
-      owners[record.headers(i)].insert(record.action_key());
+    for (std::string_view header : record.headers()) {
+      owners[header].insert(record.action_key());
     }
   }
 
@@ -167,7 +166,7 @@ HeaderIndex BuildHeaderIndex(const ActionRecords& records) {
   for (const auto& [header_path, action_keys] : owners) {
     HeaderOwners* entry = index.add_owners();
     entry->set_header_path(header_path);
-    for (const std::string_view action_key : action_keys) {
+    for (std::string_view action_key : action_keys) {
       entry->add_action_keys(action_key);
     }
   }
