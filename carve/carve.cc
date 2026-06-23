@@ -26,6 +26,8 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "carve/cli/cli.h"
 #include "carve/refresh/refresh.h"
 #include "carve/scan_deps/scan_deps.h"
@@ -81,6 +83,7 @@ absl::Status RunRefreshFromFlags() {
           .sidecar_path = absl::GetFlag(FLAGS_sidecar),
           .project_id = absl::GetFlag(FLAGS_project_id),
           .scanner = carve::scan_deps::ScanDependencies,
+          .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
       });
 }
 

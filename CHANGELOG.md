@@ -133,6 +133,11 @@ follows [SemVer](https://semver.org/).
   the cached headers of unchanged ones (new `sidecar::HasMatchingRecord` query),
   instead of re-scanning every action each run. Dogfooded: a warm re-refresh is
   ~3x faster than cold (scan skipped) and the sidecar stays byte-stable.
+- `written_at` stamping: `refresh` stamps each of its project's records with the
+  current unix time (added, changed, and reused alike) via an injected `Clock`
+  (DI for deterministic tests; the `carve` binary uses the wall clock). This
+  records project liveness for the upcoming `prune` GC; other projects' rows keep
+  their own timestamps.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

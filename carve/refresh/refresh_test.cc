@@ -15,6 +15,7 @@
 
 #include "carve/refresh/refresh.h"
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -300,6 +301,65 @@ TEST(RunRefreshTest, UnchangedActionIsNotRescanned) {
   // (not replaced by the scanner's "FRESH.h").
   EXPECT_THAT(scans, Eq(0));
   EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(seed)));
+}
+
+TEST(RunRefreshTest, StampsWrittenAtUsingTheInjectedClock) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_written_at", container);
+  options.clock = [] { return std::int64_t{1'700'000'000}; };
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The freshly built record carries the injected clock's timestamp.
+  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                                   action_key: "k1"
+                                                                                   sources: "src/a.cc"
+                                                                                   command: "clang"
+                                                                                   command: "-c"
+                                                                                   command: "src/a.cc"
+                                                                                   written_at: 1700000000
+                                                                                 })pb")));
+}
+
+TEST(RunRefreshTest, ReusedRecordIsRestampedKeepingCachedHeaders) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_written_at_reuse", container);
+  options.clock = [] { return std::int64_t{222}; };
+
+  // Seed a matching record stamped at an older time, with a cached header.
+  const ActionRecords seed = ParseTextProtoOrDie(
+      R"pb(records {
+             action_key: "k1"
+             sources: "src/a.cc"
+             command: "clang"
+             command: "-c"
+             command: "src/a.cc"
+             headers: "cached.h"
+             written_at: 111
+           })pb");
+  ASSERT_THAT(sidecar::Save(options.sidecar_path, seed), IsOk());
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The reused record keeps its cached header (content unchanged) but is
+  // restamped to the current time so prune sees the project as live.
+  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                                   action_key: "k1"
+                                                                                   sources: "src/a.cc"
+                                                                                   command: "clang"
+                                                                                   command: "-c"
+                                                                                   command: "src/a.cc"
+                                                                                   headers: "cached.h"
+                                                                                   written_at: 222
+                                                                                 })pb")));
 }
 
 }  // namespace
