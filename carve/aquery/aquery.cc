@@ -66,7 +66,7 @@ std::vector<std::string> ExpandParamFiles(const analysis::Action& action) {
       stack.pop_back();
       continue;
     }
-    const std::string_view arg = stack.back().back();
+    std::string_view arg = stack.back().back();
     stack.back().pop_back();
     if (arg.size() > 1 && arg.front() == '@' && expansions < expansion_cap) {
       const auto it = by_exec_path.find(arg.substr(1));
