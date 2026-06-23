@@ -38,11 +38,11 @@ cc_library(
         "//carve/io:io_cc",
         "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/container:flat_hash_map",
-        "@abseil-cpp//absl/container:flat_hash_set",
     ],
     visibility = ["//carve:__subpackages__"],
     deps = [
         ":carve_cc_proto",
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",
         "@abseil-cpp//absl/types:span",

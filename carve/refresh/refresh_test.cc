@@ -23,9 +23,11 @@
 #include <string>
 #include <vector>
 
+#include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/status/status_matchers.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "carve/cdb/cdb.h"
 #include "carve/sidecar/carve.pb.h"
@@ -59,6 +61,15 @@ std::filesystem::path WriteProto(const std::filesystem::path& path, const Messag
   std::ofstream file(path, std::ios::binary);
   const std::string bytes = message.SerializeAsString();
   file.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  return path;
+}
+
+// Writes `text` to `path` (creating parents), returning `path`. Used to put real
+// files on disk so staleness `stat`s have something to read.
+std::filesystem::path WriteText(const std::filesystem::path& path, std::string_view text) {
+  std::filesystem::create_directories(path.parent_path());
+  std::ofstream file(path, std::ios::binary);
+  file.write(text.data(), static_cast<std::streamsize>(text.size()));
   return path;
 }
 
@@ -275,7 +286,9 @@ TEST(RunRefreshTest, UnchangedActionIsNotRescanned) {
   }
   FileOptions options = TempRefresh("carve_scan_skip", container);
 
-  // Seed a matching record (same key+command) with a cached header.
+  // Seed a matching record (same key+command) with a cached header. It is
+  // stamped (written_at set) and its cached paths do not exist on disk, so the
+  // staleness check cannot prove a change and the action is reused.
   const ActionRecords seed = ParseTextProtoOrDie(
       R"pb(records {
              action_key: "k1"
@@ -284,6 +297,7 @@ TEST(RunRefreshTest, UnchangedActionIsNotRescanned) {
              command: "-c"
              command: "src/a.cc"
              headers: "cached.h"
+             written_at: 1
            })pb");
   ASSERT_THAT(sidecar::Save(options.sidecar_path, seed), IsOk());
 
@@ -385,6 +399,116 @@ TEST(RunRefreshTest, WritesHeaderIndexAlongsideTheSidecar) {
       IsOkAndHolds(EqualsProto(R"pb(owners { header_path: "dep.h" action_keys: "k1" }
                                     owners { header_path: "src/a.cc" action_keys: "k1" }
                                     schema_version: 1)pb")));
+}
+
+// Builds a refresh over a single `clang -c a.cc` action whose source and header
+// exist on disk under `dir`, seeded with a matching sidecar record stamped at
+// `written_at`. The scanner counts its calls and returns {header, new.h}.
+struct StalenessFixture {
+  std::filesystem::path dir;
+  std::filesystem::path header;
+  FileOptions options;
+  int scans = 0;
+};
+
+StalenessFixture MakeStalenessFixture(std::string_view name, std::int64_t written_at) {
+  StalenessFixture fixture;
+  fixture.dir = std::filesystem::path(::testing::TempDir()) / name;
+  std::filesystem::remove_all(fixture.dir);
+  fixture.header = WriteText(fixture.dir / "dep.h", "// dep\n");
+  WriteText(fixture.dir / "a.cc", "#include \"dep.h\"\n");
+
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  fixture.options = FileOptions{
+      .aquery_proto_path = WriteProto(fixture.dir / "aquery.pb", container).string(),
+      .output_path = (fixture.dir / "compile_commands.json").string(),
+      .directory = fixture.dir.string(),
+      .sidecar_path = (fixture.dir / "entries.binpb").string(),
+  };
+
+  // The stored record matches the action's key+command and caches `dep.h`; its
+  // freshness is governed entirely by `written_at` vs the files' mtimes.
+  const ActionRecords seed = ParseTextProtoOrDie(
+      absl::Substitute(
+          R"pb(records {
+                 action_key: "k1"
+                 sources: "a.cc"
+                 command: "clang"
+                 command: "-c"
+                 command: "a.cc"
+                 headers: "$0"
+                 written_at: $1
+               })pb",
+          fixture.header.string(), written_at));
+  ABSL_CHECK_OK(sidecar::Save(fixture.options.sidecar_path, seed));
+  return fixture;
+}
+
+TEST(RunRefreshTest, EditedHeaderForcesRescanOfTheOwningAction) {
+  // written_at = 1 (epoch): the on-disk source/header are far newer, so the
+  // cached scan reads as stale and the action must be re-scanned.
+  StalenessFixture fixture = MakeStalenessFixture("carve_stale_header", /*written_at=*/1);
+  const std::string new_header = (fixture.dir / "new.h").string();
+  fixture.options.scanner = [&fixture, &new_header](
+                                absl::Span<const std::string> /*argv*/,
+                                std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    ++fixture.scans;
+    return std::vector<std::string>{fixture.header.string(), new_header};
+  };
+
+  ASSERT_THAT(RunRefresh(fixture.options), IsOk());
+
+  // The stale action was re-scanned exactly once and the fresh result (now
+  // including new.h) replaced the cache.
+  EXPECT_THAT(fixture.scans, Eq(1));
+  EXPECT_THAT(
+      sidecar::Load(fixture.options.sidecar_path), IsOkAndHolds(EqualsProto(
+                                                       absl::Substitute(
+                                                           R"pb(records {
+                                                                  action_key: "k1"
+                                                                  sources: "a.cc"
+                                                                  command: "clang"
+                                                                  command: "-c"
+                                                                  command: "a.cc"
+                                                                  headers: "$0"
+                                                                  headers: "$1"
+                                                                })pb",
+                                                           fixture.header.string(), new_header))));
+}
+
+TEST(RunRefreshTest, UnmodifiedCachedScanIsReusedNotRescanned) {
+  // written_at far in the future: the files' mtimes precede the recorded scan,
+  // so the cache is fresh and the action is reused without scanning.
+  StalenessFixture fixture = MakeStalenessFixture("carve_fresh_header", /*written_at=*/9'999'999'999);
+  fixture.options.scanner = [&fixture](
+                                absl::Span<const std::string> /*argv*/,
+                                std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    ++fixture.scans;
+    return std::vector<std::string>{"UNEXPECTED.h"};
+  };
+
+  ASSERT_THAT(RunRefresh(fixture.options), IsOk());
+
+  // Not re-scanned; the stored record (cached header + timestamp) is reused
+  // verbatim.
+  EXPECT_THAT(fixture.scans, Eq(0));
+  EXPECT_THAT(
+      sidecar::Load(fixture.options.sidecar_path), IsOkAndHolds(EqualsProto(
+                                                       absl::Substitute(
+                                                           R"pb(records {
+                                                                  action_key: "k1"
+                                                                  sources: "a.cc"
+                                                                  command: "clang"
+                                                                  command: "-c"
+                                                                  command: "a.cc"
+                                                                  headers: "$0"
+                                                                  written_at: 9999999999
+                                                                })pb",
+                                                           fixture.header.string()))));
 }
 
 }  // namespace

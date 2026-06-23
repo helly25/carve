@@ -130,9 +130,9 @@ follows [SemVer](https://semver.org/).
   `carve refresh --targets=//carve/cdb:cdb_cc` captures the source's headers
   into the sidecar via in-process scan-deps.
 - Incremental scan: `refresh` now scans only added/changed actions and reuses
-  the cached headers of unchanged ones (new `sidecar::HasMatchingRecord` query),
+  the cached headers of unchanged ones (`sidecar::FindReusableRecord` query),
   instead of re-scanning every action each run. Dogfooded: a warm re-refresh is
-  ~3x faster than cold (scan skipped) and the sidecar stays byte-stable.
+  ~3x faster than cold (scan skipped).
 - `written_at` stamping: `refresh` stamps each of its project's records with the
   current unix time (added, changed, and reused alike) via an injected `Clock`
   (DI for deterministic tests; the `carve` binary uses the wall clock). This
@@ -143,6 +143,15 @@ follows [SemVer](https://semver.org/).
   owning-action reverse index rebuilt from the merged records each run. New
   `sidecar::LoadHeaderIndex`/`SaveHeaderIndex`. Dogfooded: maps 1187 headers for
   `//carve/cdb:cdb_cc` and is byte-stable across runs.
+- Header-staleness invalidation: `refresh` re-scans an otherwise-unchanged action
+  when any of its cached headers (or its source) was modified on disk since the
+  scan was recorded (`written_at`), so editing a header invalidates only the
+  actions that include it. `MergeRecords` takes a `rescanned` key set so a fresh
+  scan wins over the stale cache; `sidecar::HasMatchingRecord` becomes
+  `FindReusableRecord` (returns the matched record so its `written_at`/headers can
+  be checked). Granularity is one second. Dogfooded: a warm refresh stays on the
+  fast reuse path until a header is touched, which returns that action to a
+  cold-cost re-scan.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

@@ -15,12 +15,14 @@
 
 #include "carve/refresh/refresh.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -135,6 +137,47 @@ void ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderS
       record.add_headers(header);
     }
   }
+}
+
+// True if `path` exists and was last modified strictly after `since` (unix
+// seconds). A path that cannot be stat'd (missing, unreadable) returns false: we
+// cannot prove it changed, so it does not on its own force a re-scan.
+bool ModifiedAfter(const std::filesystem::path& path, std::int64_t since) {
+  std::error_code error;
+  const std::filesystem::file_time_type mtime = std::filesystem::last_write_time(path, error);
+  if (error) {
+    return false;
+  }
+  const auto seconds =
+      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::file_clock::to_sys(mtime).time_since_epoch())
+          .count();
+  return seconds > since;
+}
+
+// True if `stored`'s cached scan can no longer be trusted: any source or header
+// it recorded has been modified since `written_at`, so its include set may have
+// changed and the action must be re-scanned. An unstamped record (written_at 0)
+// has no baseline and is always treated as stale. Sources are resolved against
+// `directory` (the execroot); scan-deps headers are already absolute.
+//
+// `written_at` has one-second granularity, so an edit made in the same second as
+// the previous refresh's stamp is not detected until the next edit or refresh —
+// acceptable for a CDB cache, and clangd re-preprocesses regardless.
+bool CachedScanIsStale(const ActionRecord& stored, std::string_view directory) {
+  if (stored.written_at() == 0) {
+    return true;
+  }
+  for (int i = 0; i < stored.sources_size(); ++i) {
+    if (ModifiedAfter(AbsoluteFile(directory, stored.sources(i)), stored.written_at())) {
+      return true;
+    }
+  }
+  for (int i = 0; i < stored.headers_size(); ++i) {
+    if (ModifiedAfter(std::filesystem::path(std::string(stored.headers(i))), stored.written_at())) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Projects action records into compilation-database entries.
@@ -252,17 +295,23 @@ absl::Status RunRefresh(const FileOptions& options) {
     return stored.status();
   }
 
-  // Scan only added/changed actions; unchanged ones reuse the stored record's
-  // cached headers via MergeRecords below — the incremental-refresh win.
+  // Scan added/changed actions, plus unchanged actions whose cached headers (or
+  // source) have been edited on disk since the scan was recorded. Truly
+  // unchanged actions reuse the stored record's cached headers via MergeRecords
+  // below — the incremental-refresh win. `rescanned` records which keys carry a
+  // fresh scan so the merge prefers the current record over the stale cache.
+  absl::flat_hash_set<std::string_view> rescanned;
   if (options.scanner) {
     for (ActionRecord& record : *current->mutable_records()) {
-      if (!sidecar::HasMatchingRecord(*stored, record, options.project_id)) {
+      const ActionRecord* reusable = sidecar::FindReusableRecord(*stored, record, options.project_id);
+      if (reusable == nullptr || CachedScanIsStale(*reusable, directory)) {
         ScanHeaders(record, directory, options.scanner);
+        rescanned.insert(record.action_key());
       }
     }
   }
 
-  ActionRecords merged = sidecar::MergeRecords(*stored, *current, options.project_id);
+  ActionRecords merged = sidecar::MergeRecords(*stored, *current, options.project_id, rescanned);
 
   // Stamp written_at on the rows this refresh owns — added, changed, and reused
   // alike — so prune can GC projects that have stopped refreshing. Other

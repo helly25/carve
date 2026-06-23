@@ -108,7 +108,11 @@ bool SameCommand(const ActionRecord& lhs, const ActionRecord& rhs) {
 
 }  // namespace
 
-ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& current, std::string_view project_id) {
+ActionRecords MergeRecords(
+    const ActionRecords& stored,
+    const ActionRecords& current,
+    std::string_view project_id,
+    const absl::flat_hash_set<std::string_view>& rescanned) {
   ActionRecords merged;
   // Records of other projects pass through untouched; index our project's
   // stored records by key for reuse.
@@ -123,10 +127,10 @@ ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& cur
 
   for (const ActionRecord& cur : current.records()) {
     const auto it = stored_own.find(cur.action_key());
-    if (it != stored_own.end() && SameCommand(*it->second, cur)) {
-      *merged.add_records() = *it->second;  // Unchanged: keep cached fields.
+    if (it != stored_own.end() && SameCommand(*it->second, cur) && !rescanned.contains(cur.action_key())) {
+      *merged.add_records() = *it->second;  // Unchanged & still fresh: keep cached fields.
     } else {
-      *merged.add_records() = cur;  // Added or changed.
+      *merged.add_records() = cur;  // Added, changed, or re-scanned: current is authoritative.
     }
   }
 
@@ -141,14 +145,17 @@ ActionRecords MergeRecords(const ActionRecords& stored, const ActionRecords& cur
   return merged;
 }
 
-bool HasMatchingRecord(const ActionRecords& stored, const ActionRecord& candidate, std::string_view project_id) {
+const ActionRecord* FindReusableRecord(
+    const ActionRecords& stored,
+    const ActionRecord& candidate,
+    std::string_view project_id) {
   for (const ActionRecord& record : stored.records()) {
     if (record.project_id() == project_id && record.action_key() == candidate.action_key()
         && SameCommand(record, candidate)) {
-      return true;
+      return &record;
     }
   }
-  return false;
+  return nullptr;
 }
 
 HeaderIndex BuildHeaderIndex(const ActionRecords& records) {

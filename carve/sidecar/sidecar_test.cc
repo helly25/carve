@@ -37,8 +37,8 @@ using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Field;
 using ::testing::IsEmpty;
-using ::testing::IsFalse;
-using ::testing::IsTrue;
+using ::testing::IsNull;
+using ::testing::Pointee;
 
 TEST(LoadTest, MissingFileYieldsEmptyRecords) {
   EXPECT_THAT(Load("/no/such/carve/sidecar.binpb"), IsOkAndHolds(EqualsProto("")));
@@ -83,7 +83,7 @@ TEST(MergeRecordsTest, UnchangedActionKeepsStoredCachedFields) {
       ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "-c" command: "a.cc" })pb");
 
   // The stored record (with its cached header) is preserved verbatim.
-  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(stored));
+  EXPECT_THAT(MergeRecords(stored, current, "", {}), EqualsProto(stored));
 }
 
 TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
@@ -92,7 +92,7 @@ TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
   const ActionRecords current =
       ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "new" })pb");
 
-  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(current));
+  EXPECT_THAT(MergeRecords(stored, current, "", {}), EqualsProto(current));
 }
 
 TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
@@ -101,8 +101,9 @@ TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
   const ActionRecords current = ParseTextProtoOrDie(R"pb(records { action_key: "k3" command: "clang" }
                                                          records { action_key: "k2" command: "clang" })pb");
 
-  EXPECT_THAT(MergeRecords(stored, current, ""), EqualsProto(R"pb(records { action_key: "k2" command: "clang" }
-                                                                  records { action_key: "k3" command: "clang" })pb"));
+  EXPECT_THAT(
+      MergeRecords(stored, current, "", {}), EqualsProto(R"pb(records { action_key: "k2" command: "clang" }
+                                                              records { action_key: "k3" command: "clang" })pb"));
 }
 
 TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
@@ -114,7 +115,7 @@ TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
       ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "a2" project_id: "A" })pb");
 
   EXPECT_THAT(
-      MergeRecords(stored, current, "A"),
+      MergeRecords(stored, current, "A", {}),
       EqualsProto(R"pb(records { action_key: "k1" command: "clang" command: "a2" project_id: "A" }
                        records { action_key: "k2" command: "clang" command: "b" project_id: "B" })pb"));
 }
@@ -129,14 +130,14 @@ TEST(MergeRecordsTest, OwnProjectRemovedActionsAreDroppedWithoutTouchingOthers) 
       ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" project_id: "A" })pb");
 
   EXPECT_THAT(
-      MergeRecords(stored, current, "A"),
+      MergeRecords(stored, current, "A", {}),
       EqualsProto(R"pb(records { action_key: "k1" command: "clang" project_id: "A" }
                        records { action_key: "k3" command: "clang" project_id: "B" })pb"));
 }
 
-TEST(HasMatchingRecordTest, MatchesOnlyOnKeyCommandAndProject) {
-  const ActionRecords stored =
-      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "a.cc" project_id: "A" })pb");
+TEST(FindReusableRecordTest, MatchesOnlyOnKeyCommandAndProject) {
+  const ActionRecords stored = ParseTextProtoOrDie(
+      R"pb(records { action_key: "k1" command: "clang" command: "a.cc" project_id: "A" headers: "cached.h" })pb");
   const ActionRecord same =
       ParseTextProtoOrDie(R"pb(action_key: "k1" command: "clang" command: "a.cc" project_id: "A")pb");
   const ActionRecord other_command =
@@ -144,10 +145,30 @@ TEST(HasMatchingRecordTest, MatchesOnlyOnKeyCommandAndProject) {
   const ActionRecord other_key =
       ParseTextProtoOrDie(R"pb(action_key: "k2" command: "clang" command: "a.cc" project_id: "A")pb");
 
-  EXPECT_THAT(HasMatchingRecord(stored, same, "A"), IsTrue());
-  EXPECT_THAT(HasMatchingRecord(stored, other_command, "A"), IsFalse());  // command changed
-  EXPECT_THAT(HasMatchingRecord(stored, other_key, "A"), IsFalse());      // new action
-  EXPECT_THAT(HasMatchingRecord(stored, same, "B"), IsFalse());           // other project
+  // The match returns the stored record (so the caller can read its cached
+  // fields); a changed command, a new key, or another project finds nothing.
+  EXPECT_THAT(FindReusableRecord(stored, same, "A"), Pointee(EqualsProto(R"pb(action_key: "k1"
+                                                                              command: "clang"
+                                                                              command: "a.cc"
+                                                                              project_id: "A"
+                                                                              headers: "cached.h")pb")));
+  EXPECT_THAT(FindReusableRecord(stored, other_command, "A"), IsNull());  // command changed
+  EXPECT_THAT(FindReusableRecord(stored, other_key, "A"), IsNull());      // new action
+  EXPECT_THAT(FindReusableRecord(stored, same, "B"), IsNull());           // other project
+}
+
+TEST(MergeRecordsTest, RescannedKeyTakesCurrentEvenWhenCommandMatches) {
+  // Same key and command, but the cached header on the stored record is stale
+  // and the action was re-scanned, so its key is in `rescanned`.
+  const ActionRecords stored =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "a.cc" headers: "stale.h" })pb");
+  const ActionRecords current =
+      ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" command: "a.cc" headers: "fresh.h" })pb");
+
+  // Without `rescanned` the stale stored record would be kept; naming the key
+  // forces the freshly re-scanned current record instead.
+  EXPECT_THAT(MergeRecords(stored, current, "", {}), EqualsProto(stored));
+  EXPECT_THAT(MergeRecords(stored, current, "", {"k1"}), EqualsProto(current));
 }
 
 TEST(BuildHeaderIndexTest, EmptyRecordsYieldEmptyIndexWithSchemaVersion) {
