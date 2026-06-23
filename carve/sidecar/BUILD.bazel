@@ -58,9 +58,9 @@ cc_test(
         ":carve_cc_proto",
         ":sidecar_cc",
         "@abseil-cpp//absl/status:status_matchers",
-        "@com_helly25_proto//mbo/proto:matchers_cc",
-        "@com_helly25_proto//mbo/proto:parse_text_proto_cc",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+        "@helly25_proto//mbo/proto:matchers_cc",
+        "@helly25_proto//mbo/proto:parse_text_proto_cc",
     ],
 )

@@ -57,9 +57,9 @@ cc_test(
         "@abseil-cpp//absl/status:statusor",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/types:span",
-        "@com_helly25_proto//mbo/proto:matchers_cc",
-        "@com_helly25_proto//mbo/proto:parse_text_proto_cc",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+        "@helly25_proto//mbo/proto:matchers_cc",
+        "@helly25_proto//mbo/proto:parse_text_proto_cc",
     ],
 )
