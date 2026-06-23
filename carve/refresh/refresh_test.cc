@@ -362,5 +362,30 @@ TEST(RunRefreshTest, ReusedRecordIsRestampedKeepingCachedHeaders) {
                                                                                  })pb")));
 }
 
+TEST(RunRefreshTest, WritesHeaderIndexAlongsideTheSidecar) {
+  analysis::ActionGraphContainer container;
+  analysis::Action* compile = AddCompile(container, "k1");
+  for (std::string_view arg : {"clang", "-c", "src/a.cc"}) {
+    compile->add_arguments(std::string(arg));
+  }
+  FileOptions options = TempRefresh("carve_header_index", container);
+  options.scanner = [](absl::Span<const std::string> /*argv*/,
+                       std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
+    return std::vector<std::string>{"src/a.cc", "dep.h"};
+  };
+
+  ASSERT_THAT(RunRefresh(options), IsOk());
+
+  // The header index lands next to the sidecar and maps each scanned header to
+  // its owning action (owners sorted by header_path).
+  const std::filesystem::path index_path =
+      std::filesystem::path(options.sidecar_path).parent_path() / "headers-index.binpb";
+  EXPECT_THAT(
+      sidecar::LoadHeaderIndex(index_path),
+      IsOkAndHolds(EqualsProto(R"pb(owners { header_path: "dep.h" action_keys: "k1" }
+                                    owners { header_path: "src/a.cc" action_keys: "k1" }
+                                    schema_version: 1)pb")));
+}
+
 }  // namespace
 }  // namespace carve::refresh

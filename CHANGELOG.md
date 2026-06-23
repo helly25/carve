@@ -138,6 +138,11 @@ follows [SemVer](https://semver.org/).
   (DI for deterministic tests; the `carve` binary uses the wall clock). This
   records project liveness for the upcoming `prune` GC; other projects' rows keep
   their own timestamps.
+- Persist the `HeaderIndex`: `refresh` writes `headers-index.binpb` next to the
+  entries sidecar (the design's second cache file), a deterministic header ->
+  owning-action reverse index rebuilt from the merged records each run. New
+  `sidecar::LoadHeaderIndex`/`SaveHeaderIndex`. Dogfooded: maps 1187 headers for
+  `//carve/cdb:cdb_cc` and is byte-stable across runs.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

@@ -279,6 +279,18 @@ absl::Status RunRefresh(const FileOptions& options) {
   if (const absl::Status saved = sidecar::Save(options.sidecar_path, merged); !saved.ok()) {
     return saved;
   }
+
+  // Persist the header -> owning-action index alongside the entries sidecar
+  // (the design's second cache file). It is a deterministic projection of the
+  // merged records, so it is rebuilt from scratch each refresh — the reverse
+  // lookup that maps an edited header to the action(s) to re-scan. See
+  // CARVE_DESIGN.md sections 4.4-4.5.
+  const std::filesystem::path index_path =
+      std::filesystem::path(options.sidecar_path).parent_path() / "headers-index.binpb";
+  if (const absl::Status saved = sidecar::SaveHeaderIndex(index_path, sidecar::BuildHeaderIndex(merged)); !saved.ok()) {
+    return saved;
+  }
+
   return cdb::Write(options.output_path, EntriesFromRecords(merged, directory));
 }
 
