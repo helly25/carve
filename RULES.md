@@ -4,6 +4,12 @@ Code-style and structural rules for `helly25/carve`. These mirror the helly25
 house style (see sibling repos [mbo](https://github.com/helly25/mbo) and
 [bzl](https://github.com/helly25/bzl)).
 
+[STYLE_CPP.md](STYLE_CPP.md) is the detailed C++ style companion - the shared
+helly25 C++ conventions with rationale and examples (idioms, error handling,
+output/`AbslStringify`, concurrency, protobuf, GoogleTest). This file is the
+concise carve-specific rule set and structural conventions; STYLE_CPP.md expands
+the C++ parts. Where they overlap they agree; STYLE_CPP.md has the detail.
+
 [AGENTS.md](AGENTS.md) remains canonical for *process and agent* conventions
 (commits, PRs, testing discipline, library priority) and references this file
 for *code style*. [CARVE_DESIGN.md](CARVE_DESIGN.md) is canonical for
