@@ -184,6 +184,10 @@ follows [SemVer](https://semver.org/).
   workspace root. It is a `bazel run` target, not a build action (carve runs
   `bazel aquery`; nesting bazel in an action is the trap). Dogfooded;
   analysis-tested.
+- `prune` subcommand (`carve/prune`): `carve prune --sidecar=... --prune_after_days=N`
+  drops sidecar records not refreshed within N days (GC by `written_at`;
+  unstamped records are kept), rewriting the sidecar only when something changed.
+  Unit-tested and dogfooded; de-stubs the `prune` CLI command.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

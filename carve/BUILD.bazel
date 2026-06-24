@@ -24,6 +24,7 @@ cc_binary(
     deps = [
         "//carve/cli:cli_cc",
         "//carve/process:process_cc",
+        "//carve/prune:prune_cc",
         "//carve/refresh:refresh_cc",
         # Real header scanner; its linux+macos platform gate propagates to this
         # binary (and the e2e test), keeping refresh itself cross-platform.
