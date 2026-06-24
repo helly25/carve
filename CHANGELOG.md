@@ -221,9 +221,12 @@ follows [SemVer](https://semver.org/).
   header-scanned (`carve shard --scan=false`): the database does not use headers,
   and delegating invalidation to Bazel avoids scanning every TU in a build action.
   Verified: the aspect shards a leaf target and (as a stress test) the entire LLVM
-  graph cleanly; `shard` -> `aggregate` yields a valid CDB; an analysis test plus a
-  `build_test` exercise the wiring and the sandboxed shard action in CI. **M5 (the
-  full Layer C data path: aspect + shard + aggregate) is complete.**
+  graph cleanly; `shard` -> `aggregate` yields a valid CDB. CI runs an analysis test
+  for the wiring; a `manual` `build_test` actually builds a shard on demand (it is
+  not in the default suite because the aspect's `carve shard` tool needs an
+  exec-config carve = a full from-source LLVM build, too costly per CI run — the
+  shard data path itself is covered by `shard_test`). **M5 (the full Layer C data
+  path: aspect + shard + aggregate) is complete.**
 - `carve shard --scan` flag (default `true`): standalone `shard` scans headers as
   before; the Layer C aspect opts out with `--scan=false`.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->

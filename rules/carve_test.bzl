@@ -75,15 +75,24 @@ def carve_rules_test_suite(name):
         tags = ["manual"],
     )
     _aspect_refresh_wiring_test(name = "aspect_refresh_wiring_test", target_under_test = ":aspect_refresh_under_test")
+
+    # Actually building a shard runs the aspect's `carve shard` action, which needs
+    # the carve binary in the EXEC configuration. Because carve links the
+    # from-source LLVM/clang (via scan_deps), that is a full exec-config LLVM build
+    # (~tens of minutes) — far too costly for every CI run. So this build_test is
+    # `manual` and excluded from the default suite: run it on demand with
+    # `bazel test //rules:aspect_shards_build_test`. CI relies on the analysis test
+    # above (which validates the wiring without building the exec-config tool); the
+    # shard data path itself is covered by //carve/shard:shard_test.
     build_test(
         name = "aspect_shards_build_test",
         targets = [":aspect_refresh_under_test"],
+        tags = ["manual"],
     )
     native.test_suite(
         name = name,
         tests = [
             ":refresh_wiring_test",
             ":aspect_refresh_wiring_test",
-            ":aspect_shards_build_test",
         ],
     )
