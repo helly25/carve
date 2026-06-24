@@ -13,11 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//rules:carve.bzl", "carve_refresh")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
     name = "clang-format",
     srcs = [".clang-format"],
+    visibility = ["//visibility:public"],
+)
+
+# Layer B entry point: `bazel run //:refresh` writes compile_commands.json to the
+# workspace root for the whole repo. See rules/carve.bzl / CARVE_DESIGN.md 4.6.
+carve_refresh(
+    name = "refresh",
+    project_id = "carve",
+    targets = ["//carve/..."],
     visibility = ["//visibility:public"],
 )
 

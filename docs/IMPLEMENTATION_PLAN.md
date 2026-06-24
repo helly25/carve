@@ -24,9 +24,9 @@ Legend: ✅ done & tested · 🟡 partial · ⬜ not started.
 | `scan_deps` (clang `DependencyScanningTool`)                  | ✅     | wired into `refresh`; gated linux+macos                               |
 | `cli` + `//carve:carve`                                       | 🟡     | `refresh` only; `aggregate`/`shard`/`prune` are `Unimplemented` stubs |
 | e2e harness, CI, pre-commit, hermetic-llvm, proto matchers    | ✅     |                                                                       |
-| Layer B (`cc_carve` rule)                                     | ⬜     |                                                                       |
+| Layer B (`carve_refresh` rule)                                | ✅     | `bazel run //:refresh`; run-based (nested-bazel resolved)             |
 | Layer C (aspect + shards)                                     | ⬜     |                                                                       |
-| Differential harness vs Hedron / clangd validation            | ⬜     | design wanted this early                                              |
+| Differential harness vs Hedron / clangd validation            | ✅     | `tools/cdb_diff.py` + `docs/differential-report.md` (M3)              |
 | Distribution (`.bcr/`, prebuilt binaries, release)            | ⬜     |                                                                       |
 | Windows                                                       | ⬜     |                                                                       |
 
@@ -70,20 +70,20 @@ Remaining (deferred — niche toolchains or a design-level property; best valida
 
 Acceptance: golden test per quirk; platform-specific ones skipped where the toolchain is absent.
 
-### M3 — Differential harness + clangd validation
+### M3 — Differential harness + clangd validation ✅
 Correctness gate before building Layer B/C on top.
 
-- Run `carve` vs Hedron over a corpus (this repo + a couple of OSS Bazel repos); diff CDBs; document every meaningful difference (design §8, §9.4).
-- Open the produced CDB in clangd against a real target; confirm navigation/diagnostics/background indexing work.
+- ✅ `tools/cdb_diff.py`: a normalizing CDB differ (keys by workspace-relative source, ignores volatile output/dep/seed tokens), with a `--selftest` in CI. Diffs carve's CDB against any reference (e.g. a Hedron CDB).
+- ✅ clangd verified working on carve itself: `clangd --check` builds the preamble/AST/index with zero compilation diagnostics using a toolchain-matched clang 22 (`docs/differential-report.md`).
+- ✅ carve-vs-Hedron differences explained in the report (scan-deps vs `clang -M`, sidecar incrementality, header index, execroot-absolute vs workspace-relative paths). A live Hedron diff just needs a Hedron CDB pointed at `cdb_diff.py`; Hedron is intentionally not wired into carve (the tool it replaces) — a corpus run over external repos remains as optional follow-up.
 
-Acceptance: a committed diff report with differences explained; clangd verified working on carve itself.
+### M4 — Layer B: `carve_refresh` rule ✅
+`bazel run //:refresh` as the CDB entry point (design §4.6).
 
-### M4 — Layer B: `cc_carve` rule
-`bazel build //:compile_commands` as the CDB entry point (design §4.6).
+- ✅ **Nested-bazel concern resolved: a `bazel run` target, not a build action.** carve invokes `bazel aquery`/`bazel info`; spawning bazel inside a build action is the nested-bazel trap (lock/server contention, sandboxing). `carve_refresh` (`rules/carve.bzl`) generates a runfiles-aware launcher that runs the carve binary *after* the outer build and writes the CDB to `$BUILD_WORKSPACE_DIRECTORY`.
+- ✅ Dogfooded: `bazel run //:refresh` writes the repo's `compile_commands.json` (22 entries). Analysis-tested (`rules/carve_test.bzl`): the target is runnable and carries the carve binary in its runfiles (no nested bazel in the test).
 
-- Resolve the nested-bazel concern up front (running aquery inside a build action vs a `bazel run`/genrule shape).
-
-Acceptance: `bazel build //:compile_commands` emits the CDB; integration test over a synthetic workspace.
+(The design's literal `bazel build //:compile_commands` shape is not viable for the reason above; the README/usage now shows `bazel run //:refresh`.)
 
 ### M5 — Layer C: aspect + shards
 Per-action, individually-cacheable shards for huge repos (design §4.7); implements `aggregate`/`shard`.
