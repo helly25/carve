@@ -248,6 +248,13 @@ Aggregator (`carve aggregate`) reads the shards as inputs to a separate top-leve
 
 Layer C is opt-in: `cc_carve(..., use_aspect = True)`. Layer A/B remain the default until C is proven on production repos.
 
+**Implemented (M5).** A few specifics differ from the sketch above:
+
+- The aspect reads each compile action's command straight from `action.argv`, which Bazel returns fully expanded (param files already inlined, no `@file`). This is faithful to the real build and needs no `cc_common` command-line reconstruction. The shard's `command_file` is that argv in Bazel's multiline param-file format (one token per line), not a serialized proto.
+- A shard's content is a function of its compile command alone, so each shard action's *only* input is its `command_file`. Bazel re-runs an individual shard exactly when that command changes (a new flag/define/dep); editing source or header *content* leaves the command — and the database entry — unchanged, so nothing re-shards (clangd re-reads the changed files itself). Consequently shards are **not** header-scanned (`carve shard --scan=false`): the database does not use headers, and scanning every TU inside a build action would be costly. Recording headers in shards (for a shard-built `HeaderIndex`, the `ASPECT_M` source kind) is a future enhancement.
+- Aggregation runs as a `bazel run` step (`carve_aspect_refresh`), not a build action: the database's `directory` must be the persistent execroot (`bazel info execution_root`), which a sandboxed action cannot know. The outer build produces the shards (cacheable); the run step merges them.
+- The opt-in is a dedicated `carve_aspect_refresh` rule rather than a `use_aspect` flag on `cc_carve`. Its `targets` are real label deps (the aspect must analyze them), trading whole-graph analysis for per-action build-cache incrementality. Scoping the aspect to first-party targets (`exclude_external_sources`) is a future refinement.
+
 ### 4.8 Python footprint
 
 Per the constraint, kept as close to zero as possible:

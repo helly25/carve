@@ -9,7 +9,8 @@ hit. The end-to-end behavior is dogfooded via `bazel run //:refresh`.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
-load(":carve.bzl", "carve_refresh")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load(":carve.bzl", "carve_aspect_refresh", "carve_refresh")
 
 def _refresh_wiring_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -29,12 +30,60 @@ def _refresh_wiring_test_impl(ctx):
 
 _refresh_wiring_test = analysistest.make(_refresh_wiring_test_impl)
 
+def _aspect_refresh_wiring_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    asserts.true(
+        env,
+        target[DefaultInfo].files_to_run.executable != None,
+        "carve_aspect_refresh should produce a runnable launcher",
+    )
+    runfiles = [f.short_path for f in target[DefaultInfo].default_runfiles.files.to_list()]
+    asserts.true(
+        env,
+        [p for p in runfiles if p.endswith("carve/carve")] != [],
+        "the carve binary should be in the launcher's runfiles, got: {}".format(runfiles),
+    )
+    asserts.true(
+        env,
+        [p for p in runfiles if p.endswith(".shard.binpb")] != [],
+        "the aspect should have produced at least one shard in the runfiles, got: {}".format(runfiles),
+    )
+    return analysistest.end(env)
+
+_aspect_refresh_wiring_test = analysistest.make(_aspect_refresh_wiring_test_impl)
+
 def carve_rules_test_suite(name):
-    """Defines the carve_refresh analysis tests under `name`."""
+    """Defines the carve_refresh / carve_aspect_refresh analysis tests under `name`.
+
+    Args:
+      name: name of the generated `test_suite` that aggregates the rule tests.
+    """
     carve_refresh(
         name = "refresh_under_test",
         targets = ["//carve/cdb:cdb_cc"],
         tags = ["manual"],  # Built by the test; not for direct `bazel run`.
     )
     _refresh_wiring_test(name = "refresh_wiring_test", target_under_test = ":refresh_under_test")
-    native.test_suite(name = name, tests = [":refresh_wiring_test"])
+
+    # Layer C: the aspect runs at analysis time over the dep, so the wiring test
+    # also proves the aspect declared a shard. The build_test then actually builds
+    # the shards, exercising the sandboxed `carve shard` action (scan-deps) in CI.
+    carve_aspect_refresh(
+        name = "aspect_refresh_under_test",
+        targets = ["//rules/testdata:lib"],
+        tags = ["manual"],
+    )
+    _aspect_refresh_wiring_test(name = "aspect_refresh_wiring_test", target_under_test = ":aspect_refresh_under_test")
+    build_test(
+        name = "aspect_shards_build_test",
+        targets = [":aspect_refresh_under_test"],
+    )
+    native.test_suite(
+        name = name,
+        tests = [
+            ":refresh_wiring_test",
+            ":aspect_refresh_wiring_test",
+            ":aspect_shards_build_test",
+        ],
+    )
