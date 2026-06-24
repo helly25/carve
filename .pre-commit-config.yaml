@@ -43,6 +43,13 @@ repos:
         language: system
         files: \.md$
 
+      - id: cdb-diff-selftest
+        name: cdb_diff self-test
+        entry: python3 tools/cdb_diff.py --selftest
+        language: system
+        files: ^tools/cdb_diff\.py$
+        pass_filenames: false
+
       - id: blocked-merge-markers
         name: no blocked-merge markers
         entry: '(?i)do[ _-]?not[ _-]?merge'
