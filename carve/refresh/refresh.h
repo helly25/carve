@@ -46,6 +46,21 @@ using HeaderScanner = std::function<
 // clock. An empty clock leaves `written_at` unset.
 using Clock = std::function<std::int64_t()>;
 
+// Resolved Apple toolchain paths used to substitute Bazel `wrapped_clang`
+// placeholders (`__BAZEL_XCODE_DEVELOPER_DIR__` / `__BAZEL_XCODE_SDKROOT__`) that
+// appear in compile commands from the Apple crosstool. An empty field leaves its
+// placeholder untouched.
+struct XcodePaths {
+  std::string developer_dir;
+  std::string sdkroot;
+};
+
+// Resolves the Apple toolchain paths (e.g. `xcode-select -p` / `xcrun
+// --show-sdk-path` on macOS). Injected so `refresh` stays IO-free and testable;
+// only called when a command actually carries a `__BAZEL_XCODE_` placeholder.
+// An empty resolver disables the substitution.
+using XcodeResolver = std::function<XcodePaths()>;
+
 // Inputs that shape the produced compilation database.
 struct Options {
   // The working directory recorded on each entry (clangd resolves an entry's
@@ -73,6 +88,7 @@ struct FileOptions {
   Clock clock;                       // Stamps written_at on this project's records each
                                      // refresh (for prune/GC); empty leaves it unset.
   int jobs = 0;                      // Parallel scan-deps worker threads; <=0 means serial.
+  XcodeResolver xcode_resolver;      // Resolves wrapped_clang placeholders; empty = none.
 };
 
 // Outcome counts from a refresh, for reporting to the user.

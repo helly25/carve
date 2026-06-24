@@ -33,6 +33,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/synchronization/mutex.h"
@@ -123,6 +124,29 @@ absl::StatusOr<ActionRecords> BuildRecords(std::string_view aquery_proto, std::s
     }
   }
   return records;
+}
+
+// Substitutes Apple `wrapped_clang` placeholders in every record's command so
+// the commands clangd and scan-deps see carry real SDK/developer paths. The
+// resolver (IO: `xcode-select`/`xcrun`) is only invoked when some command
+// actually contains a `__BAZEL_XCODE_` placeholder, so non-Apple builds pay
+// nothing. See CARVE_DESIGN.md section 4.3.
+void ApplyXcodePlaceholders(ActionRecords& records, const XcodeResolver& resolver) {
+  const auto has_placeholder = [](const ActionRecord& record) {
+    return absl::c_any_of(
+        record.command(), [](std::string_view arg) { return absl::StrContains(arg, "__BAZEL_XCODE_"); });
+  };
+  if (!absl::c_any_of(records.records(), has_placeholder)) {
+    return;
+  }
+  const XcodePaths xcode = resolver();
+  for (ActionRecord& record : *records.mutable_records()) {
+    const std::vector<std::string> command(record.command().begin(), record.command().end());
+    record.clear_command();
+    for (const std::string& arg : command::ResolveXcodePlaceholders(command, xcode.developer_dir, xcode.sdkroot)) {
+      record.add_command(arg);
+    }
+  }
 }
 
 // Scans `record`'s command for header dependencies (against `directory`) and
@@ -330,6 +354,9 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
   }
 
   MBO_ASSIGN_OR_RETURN(ActionRecords current, BuildRecords(*proto, options.project_id));
+  if (options.xcode_resolver) {
+    ApplyXcodePlaceholders(current, options.xcode_resolver);
+  }
 
   if (options.sidecar_path.empty()) {
     // No cache: scan every action (when a scanner is configured).

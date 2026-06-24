@@ -68,5 +68,52 @@ TEST(DeBazelTest, DropsMultipleQuirksTogether) {
   EXPECT_THAT(DeBazel(argv), ElementsAre("clang", "-c", "a.cc", "-o", "a.o"));
 }
 
+TEST(DeBazelTest, DropsLeadingCcacheWrapper) {
+  EXPECT_THAT(DeBazel(std::vector<std::string>{"ccache", "clang", "-c", "a.cc"}), ElementsAre("clang", "-c", "a.cc"));
+}
+
+TEST(DeBazelTest, DropsLeadingCcacheWrapperWhenPathQualified) {
+  EXPECT_THAT(
+      DeBazel(std::vector<std::string>{"/usr/lib/ccache/bin/ccache", "g++", "-c", "a.cc"}),
+      ElementsAre("g++", "-c", "a.cc"));
+}
+
+TEST(DeBazelTest, OnlyDropsCcacheInLeadPosition) {
+  // A literal `ccache` token anywhere but argv[0] is not a wrapper; keep it.
+  EXPECT_THAT(DeBazel(std::vector<std::string>{"clang", "ccache", "-c"}), ElementsAre("clang", "ccache", "-c"));
+}
+
+TEST(DeBazelTest, DropsMsvcShowIncludes) {
+  EXPECT_THAT(
+      DeBazel(std::vector<std::string>{"clang-cl", "/showIncludes", "/showIncludes:user", "-c", "a.cc"}),
+      ElementsAre("clang-cl", "-c", "a.cc"));
+}
+
+TEST(DeBazelTest, DropsBazelOutModulesCachePath) {
+  EXPECT_THAT(
+      DeBazel(std::vector<std::string>{"clang", "-fmodules-cache-path=bazel-out/darwin/cache", "-c", "a.cc"}),
+      ElementsAre("clang", "-c", "a.cc"));
+}
+
+TEST(DeBazelTest, KeepsNonBazelOutModulesCachePath) {
+  // Only the per-build bazel-out cache is dropped; a user-set cache is kept.
+  const std::vector<std::string> argv = {"clang", "-fmodules-cache-path=/home/me/.cache/clang", "-c", "a.cc"};
+  EXPECT_THAT(DeBazel(argv), ElementsAre("clang", "-fmodules-cache-path=/home/me/.cache/clang", "-c", "a.cc"));
+}
+
+TEST(ResolveXcodePlaceholdersTest, SubstitutesDeveloperDirAndSdkrootSubstrings) {
+  const std::vector<std::string> argv = {
+      "__BAZEL_XCODE_DEVELOPER_DIR__/usr/bin/clang", "-isysroot__BAZEL_XCODE_SDKROOT__", "-c", "a.cc"};
+  EXPECT_THAT(
+      ResolveXcodePlaceholders(argv, "/Applications/Xcode.app/Contents/Developer", "/SDKs/MacOSX.sdk"),
+      ElementsAre(
+          "/Applications/Xcode.app/Contents/Developer/usr/bin/clang", "-isysroot/SDKs/MacOSX.sdk", "-c", "a.cc"));
+}
+
+TEST(ResolveXcodePlaceholdersTest, EmptyReplacementsLeavePlaceholdersUntouched) {
+  const std::vector<std::string> argv = {"-isysroot__BAZEL_XCODE_SDKROOT__", "-c", "a.cc"};
+  EXPECT_THAT(ResolveXcodePlaceholders(argv, "", ""), ElementsAre("-isysroot__BAZEL_XCODE_SDKROOT__", "-c", "a.cc"));
+}
+
 }  // namespace
 }  // namespace carve::command
