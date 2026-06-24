@@ -29,18 +29,29 @@ refresh on large monorepos is a Layer C (aspect) property: Layers A/B re-run
 `bazel aquery` each time and so pay the graph-query cost regardless of edit
 size. See [CARVE_DESIGN.md](CARVE_DESIGN.md) section 3.1.
 
-## Usage (planned)
+## Usage
 
 ```bash
-# Layer A: single-shot tool.
-bazel run @helly25_carve//:refresh
+# Refresh the whole repo's compilation database (writes compile_commands.json to
+# the workspace root). This is the carve_refresh rule (Layer B).
+bazel run //:refresh
 
-# Layer B: CDB as a Bazel build artifact.
-bazel build //:compile_commands
-
-# Layer C: aspect-driven, per-action shards (opt-in).
-bazel build //:compile_commands --@helly25_carve//rules:use_aspect=True
+# Or drive the binary directly (Layer A), choosing targets/output on the CLI.
+bazel run //:carve -- refresh --targets=//foo/... --output=compile_commands.json
 ```
+
+In a consumer workspace, add the rule from a `BUILD` file:
+
+```python
+load("@helly25_carve//rules:carve.bzl", "carve_refresh")
+
+carve_refresh(name = "refresh", targets = ["//..."])
+```
+
+`carve_refresh` is a **`bazel run`** target, not a build artifact: carve invokes
+`bazel aquery`, and spawning bazel inside a build action is the nested-bazel
+trap. Layer C (an aspect emitting per-action shards, opt-in) is not yet
+implemented.
 
 ## Build requirements
 

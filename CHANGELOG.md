@@ -174,6 +174,16 @@ follows [SemVer](https://semver.org/).
   `XcodeResolver` (the binary resolves `xcode-select`/`xcrun` on macOS, only when
   a command carries a placeholder). Golden-tested. (nvcc/emscripten flag
   translation and workspace-relative path canonicalization remain.)
+- M3 differential validation: `tools/cdb_diff.py` (a normalizing compilation-
+  database differ, `--selftest` in CI) and `docs/differential-report.md` (clangd
+  consumes carve's CDB cleanly with a toolchain-matched clang 22; the
+  missing-generated-header guard observed on a clean tree; carve-vs-Hedron
+  differences explained).
+- M4 Layer B: the `carve_refresh` rule (`rules/carve.bzl`) and a `//:refresh`
+  entry point — `bazel run //:refresh` writes `compile_commands.json` to the
+  workspace root. It is a `bazel run` target, not a build action (carve runs
+  `bazel aquery`; nesting bazel in an action is the trap). Dogfooded;
+  analysis-tested.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).
