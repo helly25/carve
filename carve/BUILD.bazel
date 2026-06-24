@@ -22,6 +22,7 @@ cc_binary(
     srcs = ["carve.cc"],
     visibility = ["//visibility:public"],
     deps = [
+        "//carve/aggregate:aggregate_cc",
         "//carve/cli:cli_cc",
         "//carve/process:process_cc",
         "//carve/prune:prune_cc",

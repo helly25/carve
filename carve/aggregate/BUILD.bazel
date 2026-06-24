@@ -18,51 +18,34 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 package(default_visibility = ["//visibility:private"])
 
 cc_library(
-    name = "refresh_cc",
-    srcs = ["refresh.cc"],
-    hdrs = ["refresh.h"],
+    name = "aggregate_cc",
+    srcs = ["aggregate.cc"],
+    hdrs = ["aggregate.h"],
     implementation_deps = [
-        "//carve/aquery:aquery_cc",
-        "//carve/command:command_cc",
-        "//carve/io:io_cc",
-        "//carve/process:process_cc",
+        "//carve/cdb:cdb_cc",
+        "//carve/refresh:refresh_cc",
         "//carve/sidecar:sidecar_cc",
-        "@abseil-cpp//absl/algorithm:container",
-        "@abseil-cpp//absl/base:core_headers",
-        "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@helly25_mbo//mbo/status:status_macros_cc",
     ],
     visibility = ["//carve:__subpackages__"],
     deps = [
-        "//carve/cdb:cdb_cc",
-        # carve.pb.h is included by refresh.h (EntriesFromRecords takes an
-        # ActionRecords), so this is part of the public interface, not just the
-        # implementation.
         "//carve/sidecar:carve_cc_proto",
-        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",
         "@abseil-cpp//absl/types:span",
     ],
 )
 
 cc_test(
-    name = "refresh_test",
+    name = "aggregate_test",
     size = "small",
-    srcs = ["refresh_test.cc"],
+    srcs = ["aggregate_test.cc"],
     deps = [
-        ":refresh_cc",
+        ":aggregate_cc",
         "//carve/cdb:cdb_cc",
         "//carve/sidecar:carve_cc_proto",
         "//carve/sidecar:sidecar_cc",
-        "//carve/third_party/bazel:analysis_v2_cc_proto",
-        "@abseil-cpp//absl/log:check",
-        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:status_matchers",
-        "@abseil-cpp//absl/status:statusor",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/types:span",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
         "@helly25_proto//mbo/proto:matchers_cc",

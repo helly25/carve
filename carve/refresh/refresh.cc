@@ -277,26 +277,6 @@ bool CachedScanIsStale(const ActionRecord& stored, std::string_view directory) {
             });
 }
 
-// Projects action records into compilation-database entries.
-std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records, std::string_view directory) {
-  std::vector<cdb::CompileCommand> entries;
-  entries.reserve(static_cast<std::size_t>(records.records_size()));
-  for (const ActionRecord& record : records.records()) {
-    if (record.sources_size() == 0) {
-      continue;
-    }
-    std::vector<std::string> arguments(record.command().begin(), record.command().end());
-    entries.push_back(
-        cdb::CompileCommand{
-            .directory = std::string(directory),
-            .file = AbsoluteFile(directory, record.sources(0)),
-            .arguments = std::move(arguments),
-            .output = std::string(record.primary_output()),
-        });
-  }
-  return entries;
-}
-
 // Returns `bazel info execution_root` (trimmed): the directory clangd should
 // resolve each entry's relative paths against.
 absl::StatusOr<std::string> BazelExecRoot(const std::string& bazel) {
@@ -329,6 +309,25 @@ absl::StatusOr<std::string> RunAquery(const std::vector<std::string>& targets, c
 }
 
 }  // namespace
+
+std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records, std::string_view directory) {
+  std::vector<cdb::CompileCommand> entries;
+  entries.reserve(static_cast<std::size_t>(records.records_size()));
+  for (const ActionRecord& record : records.records()) {
+    if (record.sources_size() == 0) {
+      continue;
+    }
+    std::vector<std::string> arguments(record.command().begin(), record.command().end());
+    entries.push_back(
+        cdb::CompileCommand{
+            .directory = std::string(directory),
+            .file = AbsoluteFile(directory, record.sources(0)),
+            .arguments = std::move(arguments),
+            .output = std::string(record.primary_output()),
+        });
+  }
+  return entries;
+}
 
 absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(std::string_view aquery_proto, const Options& options) {
   MBO_ASSIGN_OR_RETURN(const ActionRecords records, BuildRecords(aquery_proto, options.project_id));

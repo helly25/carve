@@ -188,6 +188,15 @@ follows [SemVer](https://semver.org/).
   drops sidecar records not refreshed within N days (GC by `written_at`;
   unstamped records are kept), rewriting the sidecar only when something changed.
   Unit-tested and dogfooded; de-stubs the `prune` CLI command.
+- `aggregate` subcommand (`carve/aggregate`): `carve aggregate --sidecars=a,b,...
+  --output=compile_commands.json --directory=<execroot>` merges independently-
+  produced sidecars (e.g. parallel build shards of one workspace) into one
+  compilation database offline (no `bazel aquery`). `Combine` unions records,
+  de-duplicates by (project_id, action_key) keeping the most-recently-written on
+  collision, and sorts deterministically; a missing sidecar contributes nothing.
+  Shares the records->CDB projection with `refresh` (`EntriesFromRecords` lifted
+  to `carve/refresh`'s public API). Unit-tested; de-stubs the `aggregate` CLI
+  command (the per-action aspect that emits the shards remains M5/Layer C).
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).
