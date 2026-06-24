@@ -64,12 +64,12 @@ The harness (`tools/cdb_diff.py`) keys entries by workspace-relative source and
 compares normalized flag sets (ignoring volatile output/dep/seed tokens); the
 *structural* differences below are by design, not diffs the harness should flag:
 
-| Aspect | carve | Hedron |
-| ------ | ----- | ------ |
-| Header discovery | in-process clang `DependencyScanningTool` (scan-deps) | forks `clang -M` / parses `/showIncludes` per source |
-| Incrementality | binary-proto sidecar keyed by aquery `action_key`, command+mtime staleness, project-scoped merge | re-extracts; caches action keys in `bazel-out` |
-| `file`/`directory` | absolute against the execroot; argv stays exec-relative | workspace-relative paths via `bazel-out`/`external` symlinks |
-| Header index | persisted header -> owning-action index for targeted invalidation | none |
+| Aspect             | carve                                                                                            | Hedron                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Header discovery   | in-process clang `DependencyScanningTool` (scan-deps)                                            | forks `clang -M` / parses `/showIncludes` per source         |
+| Incrementality     | binary-proto sidecar keyed by aquery `action_key`, command+mtime staleness, project-scoped merge | re-extracts; caches action keys in `bazel-out`               |
+| `file`/`directory` | absolute against the execroot; argv stays exec-relative                                          | workspace-relative paths via `bazel-out`/`external` symlinks |
+| Header index       | persisted header -> owning-action index for targeted invalidation                                | none                                                         |
 
 The clangd-facing argv transforms are the **same intent** and should diff empty
 on shared flags once both are de-Bazeled: strip `-fno-canonical-system-headers`
