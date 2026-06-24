@@ -112,8 +112,9 @@ Per-action, individually-cacheable shards for huge repos (design §4.7).
   re-runs only the shards whose command changed; content edits don't re-shard
   (the entry is unchanged). Shards are not header-scanned (`--scan=false`) — the
   database does not use headers and Bazel owns invalidation. Validated by an
-  analysis test + a `build_test` (exercises the sandboxed shard action in CI), and
-  manually at LLVM-graph scale.
+  analysis test in CI (the wiring) and a `manual` `build_test` (run on demand — it
+  needs an exec-config carve, i.e. a full from-source LLVM build, too costly per CI
+  run), plus manual verification at LLVM-graph scale.
 
 Acceptance: aspect emits shards (done); `carve aggregate` merges them (done);
 a compile-command change re-shards only the affected action (done — via Bazel's
@@ -122,7 +123,11 @@ action cache on `command_file`). **M5 complete.**
 Deferred Layer C refinements (follow-ups, not blockers): scoping the aspect to
 first-party targets (the design's `exclude_external_sources`, so it does not shard
 the whole external graph); recording headers in shards for a shard-built
-`HeaderIndex` (the design's `ASPECT_M` source kind).
+`HeaderIndex` (the design's `ASPECT_M` source kind); and a **lean shard tool** —
+the aspect runs `carve shard` as an exec-config build tool, but `carve` links the
+from-source LLVM/clang (via `scan_deps`) even though `shard --scan=false` never
+uses it, so the exec build is a full LLVM compile. Splitting a scan-free `shard`
+binary (no LLVM link) would make the per-action tool tiny and the exec build cheap.
 
 ### M6 — 0.1 release + distribution
 `.bcr/` metadata, release automation, prebuilt binaries for common platforms (design §7); decide Windows in-or-out.
