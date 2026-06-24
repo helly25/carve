@@ -197,6 +197,15 @@ follows [SemVer](https://semver.org/).
   Shares the records->CDB projection with `refresh` (`EntriesFromRecords` lifted
   to `carve/refresh`'s public API). Unit-tested; de-stubs the `aggregate` CLI
   command (the per-action aspect that emits the shards remains M5/Layer C).
+- `shard` subcommand (`carve/shard`): `carve shard --action_key=... --command_file=...
+  --source=... --out=...` builds the one-record shard for a single compile action —
+  the per-action invocation the Layer C aspect schedules (CARVE_DESIGN §4.7). It
+  de-Bazels the command, resolves Apple `wrapped_clang` placeholders, scans headers
+  via the injected scanner (a failed scan records none and leaves the row unstamped
+  so it is re-scanned), and stamps `written_at` on a complete scan. The record shape
+  matches `refresh`, so shards merge cleanly via `aggregate`. Verified end-to-end:
+  `shard` -> `aggregate` produces a valid CDB. Unit-tested; de-stubs the `shard` CLI
+  command. The emitting Starlark aspect (the remaining half of Layer C) is next.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

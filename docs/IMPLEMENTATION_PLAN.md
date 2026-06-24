@@ -12,35 +12,36 @@ Last reviewed: 2026-06-24.
 
 Legend: ✅ done & tested · 🟡 partial · ⬜ not started.
 
-| Capability                                                    | State | Notes                                                                      |
-| ------------------------------------------------------------- | ----- | -------------------------------------------------------------------------- |
-| `io` (atomic write, read)                                     | ✅     |                                                                            |
-| `process` (subprocess capture)                                | ✅     | POSIX; Windows later                                                       |
-| `cdb` (model + JSON + atomic write)                           | ✅     | deterministic output                                                       |
-| `command` (de-Bazel argv)                                     | 🟡     | M2 quirks landed; nvcc/emscripten/cross-host canonicalization left         |
-| `aquery` (proto parse, param-file expand, path resolve)       | ✅     | vendored trimmed `analysis_v2.proto`                                       |
-| `sidecar` (schema, Load/Save, diff, project-scoped merge)     | ✅     | `HeaderIndex` built & persisted; `written_at` stamped                      |
-| `refresh` (in-process aquery, execroot, merge, multi-project) | ✅     | M1 done: scan-deps, incremental, staleness, header index, `--jobs`         |
-| `scan_deps` (clang `DependencyScanningTool`)                  | ✅     | wired into `refresh`; gated linux+macos                                    |
-| `cli` + `//carve:carve`                                       | 🟡     | `refresh` + `prune` + `aggregate`; `shard` is an `Unimplemented` stub (M5) |
-| e2e harness, CI, pre-commit, hermetic-llvm, proto matchers    | ✅     |                                                                            |
-| Layer B (`carve_refresh` rule)                                | ✅     | `bazel run //:refresh`; run-based (nested-bazel resolved)                  |
-| Layer C (aspect + shards)                                     | 🟡     | `aggregate` (offline shard merge) landed; emitting aspect + `shard` remain |
-| Differential harness vs Hedron / clangd validation            | ✅     | `tools/cdb_diff.py` + `docs/differential-report.md` (M3)                   |
-| Distribution (`.bcr/`, prebuilt binaries, release)            | ⬜     |                                                                            |
-| Windows                                                       | ⬜     |                                                                            |
+| Capability                                                    | State | Notes                                                                                |
+| ------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------ |
+| `io` (atomic write, read)                                     | ✅     |                                                                                      |
+| `process` (subprocess capture)                                | ✅     | POSIX; Windows later                                                                 |
+| `cdb` (model + JSON + atomic write)                           | ✅     | deterministic output                                                                 |
+| `command` (de-Bazel argv)                                     | 🟡     | M2 quirks landed; nvcc/emscripten/cross-host canonicalization left                   |
+| `aquery` (proto parse, param-file expand, path resolve)       | ✅     | vendored trimmed `analysis_v2.proto`                                                 |
+| `sidecar` (schema, Load/Save, diff, project-scoped merge)     | ✅     | `HeaderIndex` built & persisted; `written_at` stamped                                |
+| `refresh` (in-process aquery, execroot, merge, multi-project) | ✅     | M1 done: scan-deps, incremental, staleness, header index, `--jobs`                   |
+| `scan_deps` (clang `DependencyScanningTool`)                  | ✅     | wired into `refresh`; gated linux+macos                                              |
+| `cli` + `//carve:carve`                                       | ✅     | all four subcommands wired: `refresh` + `prune` + `aggregate` + `shard`              |
+| e2e harness, CI, pre-commit, hermetic-llvm, proto matchers    | ✅     |                                                                                      |
+| Layer B (`carve_refresh` rule)                                | ✅     | `bazel run //:refresh`; run-based (nested-bazel resolved)                            |
+| Layer C (aspect + shards)                                     | 🟡     | `shard` + `aggregate` (the C++ data path) done; the emitting Starlark aspect remains |
+| Differential harness vs Hedron / clangd validation            | ✅     | `tools/cdb_diff.py` + `docs/differential-report.md` (M3)                             |
+| Distribution (`.bcr/`, prebuilt binaries, release)            | ⬜     |                                                                                      |
+| Windows                                                       | ⬜     |                                                                                      |
 
 Bottom line: **Layer A produces a correct-shaped CDB with header coverage and
 incremental refresh.** scan-deps is wired into `refresh`; unchanged actions
 reuse cached headers; editing a header re-scans only its owning actions;
 unresolved (unbuilt generated) headers are not cached and are retried;
 `written_at` and the persisted `HeaderIndex` are in place; scanning is
-parallelized (`--jobs`). **M1–M4 are complete**, plus the `prune` and
-`aggregate` subcommands. `refresh` (Layer A) and `carve_refresh` (Layer B) are
-the working CDB entry points; `aggregate` merges independently-produced sidecars
-offline. **Next: M5 (Layer C — the per-action aspect that emits shards, the last
-piece `aggregate` is built to consume; `shard` subcommand) and M6 (release +
-distribution).**
+parallelized (`--jobs`). **M1–M4 are complete**, plus the `prune`, `aggregate`,
+and `shard` subcommands — all four CLI subcommands are now wired and tested.
+`refresh` (Layer A) and `carve_refresh` (Layer B) are the working CDB entry
+points; the Layer C C++ data path (`shard` produces per-action shards,
+`aggregate` merges them) is verified end-to-end. **Next: the M5 Layer C emitting
+aspect (the Starlark half that schedules `carve shard` per compile action) and
+M6 (release + distribution).**
 
 ## Milestones (dependency-ordered)
 
@@ -95,13 +96,18 @@ Per-action, individually-cacheable shards for huge repos (design §4.7).
 - ✅ `aggregate` subcommand (`carve/aggregate`): the offline merge half — unions
   independently-produced sidecars (de-dup by (project_id, action_key), keep
   most-recently-written, deterministic order) and emits one CDB without running
-  `bazel aquery`. Shares `refresh::EntriesFromRecords`. Landed ahead of the
-  aspect so the consumer is ready and unit-tested.
-- ⬜ The emitting aspect: a Starlark aspect over the build graph that, per
-  compile action, writes a one-record shard sidecar (the hard part — action
-  introspection, scan-deps in/after the action, individual cacheability).
-- ⬜ `shard` subcommand: the per-action invocation the aspect calls to produce a
-  single shard.
+  `bazel aquery`. Shares `refresh::EntriesFromRecords`.
+- ✅ `shard` subcommand (`carve/shard`): the per-action invocation the aspect
+  schedules — `carve shard --action_key=… --command_file=… --source=… --out=…`
+  de-Bazels the command, resolves Xcode placeholders, scans headers (failed scan
+  → unstamped, re-scanned later), and writes a one-record shard whose shape
+  matches `refresh`. Verified end-to-end: `shard` → `aggregate` → valid CDB.
+- ⬜ The emitting aspect (the remaining half): a Starlark aspect over the build
+  graph that, per compile action, schedules `carve shard` and collects the
+  results in a `carve_shards` output group (the hard part — reading each compile
+  action's argv + inputs in Starlark, the `cc_carve(use_aspect=True)` opt-in,
+  individual action-cache invalidation). The `aggregator` action then merges the
+  shards (`carve aggregate`).
 
 Acceptance: aspect emits shards; `carve aggregate` merges them (done); editing
 one source rebuilds only its shard.
@@ -114,7 +120,8 @@ Acceptance: a bzlmod consumer can `bazel_dep(name = "carve")` and get a working 
 ## Cross-cutting / parallelizable
 - ✅ `prune` subcommand (`carve/prune`): GC sidecar rows whose `written_at` is older than `--prune_after_days`; unstamped rows kept. `carve prune --sidecar=... --prune_after_days=30`.
 - ✅ `aggregate` subcommand (`carve/aggregate`): merges independently-produced
-  sidecars into one CDB offline. `shard` (the per-action emitter) lands with M5.
+  sidecars into one CDB offline. ✅ `shard` subcommand (`carve/shard`): builds one
+  per-action shard. The Starlark aspect that schedules `shard` is the remaining M5 piece.
 - Parallel scan-deps (`--jobs`) — fold into M1.
 - Property tests: idempotency (have a dogfood check; codify), cross-host determinism (needs M2 canonicalization).
 - Keep [docs/test-plan.md](test-plan.md) at zero open debts.

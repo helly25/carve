@@ -38,6 +38,7 @@
 #include "carve/prune/prune.h"
 #include "carve/refresh/refresh.h"
 #include "carve/scan_deps/scan_deps.h"
+#include "carve/shard/shard.h"
 #include "mbo/status/status_macros.h"
 
 ABSL_FLAG(
@@ -70,6 +71,29 @@ ABSL_FLAG(
     "aggregate: comma-separated sidecar (shard) paths to merge into one "
     "compilation database written to --output. --directory should be the shared "
     "execution root the shards' sources are relative to.");
+ABSL_FLAG(std::string, action_key, "", "shard: identity key of the compile action this shard describes.");
+ABSL_FLAG(
+    std::string,
+    command_file,
+    "",
+    "shard: path to the compiler argv, one token per line (Bazel multiline param format).");
+ABSL_FLAG(std::string, source, "", "shard: exec-root-relative source path of the compile action.");
+ABSL_FLAG(
+    std::string,
+    primary_output,
+    "",
+    "shard: exec-root-relative primary output of the compile action (optional).");
+ABSL_FLAG(std::string, out, "", "shard: path to write the resulting one-record shard (binary proto).");
+ABSL_FLAG(
+    std::string,
+    xcode_developer_dir,
+    "",
+    "shard: value for __BAZEL_XCODE_DEVELOPER_DIR__; resolved via xcode-select on macOS when empty.");
+ABSL_FLAG(
+    std::string,
+    xcode_sdkroot,
+    "",
+    "shard: value for __BAZEL_XCODE_SDKROOT__; resolved via xcrun on macOS when empty.");
 
 namespace {
 
@@ -178,6 +202,54 @@ absl::Status RunAggregateFromFlags() {
   return absl::OkStatus();
 }
 
+// Runs the `shard` subcommand from flags: build the one-record shard for a single
+// compile action (the per-action invocation the Layer C aspect schedules).
+absl::Status RunShardFromFlags() {
+  const std::string action_key = absl::GetFlag(FLAGS_action_key);
+  const std::string command_file = absl::GetFlag(FLAGS_command_file);
+  const std::string source = absl::GetFlag(FLAGS_source);
+  const std::string out = absl::GetFlag(FLAGS_out);
+  if (action_key.empty() || command_file.empty() || source.empty() || out.empty()) {
+    return absl::InvalidArgumentError("shard requires --action_key, --command_file, --source and --out");
+  }
+
+  // The scan resolves the command's relative paths against the execroot; in a
+  // build action that is the working directory.
+  std::string directory = absl::GetFlag(FLAGS_directory);
+  if (directory.empty()) {
+    directory = std::filesystem::current_path().string();
+  }
+
+  // Resolve the Apple toolchain paths the same way `refresh` does, unless the
+  // caller (the aspect) already passed them to avoid re-resolving per action.
+  std::string xcode_developer_dir = absl::GetFlag(FLAGS_xcode_developer_dir);
+  std::string xcode_sdkroot = absl::GetFlag(FLAGS_xcode_sdkroot);
+  if (xcode_developer_dir.empty() && xcode_sdkroot.empty()) {
+    if (const carve::refresh::XcodeResolver resolver = MakeXcodeResolver(); resolver) {
+      const carve::refresh::XcodePaths paths = resolver();
+      xcode_developer_dir = paths.developer_dir;
+      xcode_sdkroot = paths.sdkroot;
+    }
+  }
+
+  const carve::shard::FileOptions options{
+      .action_key = action_key,
+      .command_file = command_file,
+      .source = source,
+      .project_id = absl::GetFlag(FLAGS_project_id),
+      .primary_output = absl::GetFlag(FLAGS_primary_output),
+      .directory = directory,
+      .xcode_developer_dir = xcode_developer_dir,
+      .xcode_sdkroot = xcode_sdkroot,
+      .scanner = carve::scan_deps::ScanDependencies,
+      .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
+      .out_path = out,
+  };
+  MBO_RETURN_IF_ERROR(carve::shard::RunShard(options));
+  std::cerr << absl::StreamFormat("carve: wrote shard %s\n", out);
+  return absl::OkStatus();
+}
+
 int RealMain(int argc, char** argv) {
   absl::SetProgramUsageMessage(kUsage);
   const std::vector<char*> positional = absl::ParseCommandLine(argc, argv);
@@ -209,6 +281,7 @@ int RealMain(int argc, char** argv) {
     case carve::cli::Subcommand::kRefresh: status = RunRefreshFromFlags(); break;
     case carve::cli::Subcommand::kPrune: status = RunPruneFromFlags(); break;
     case carve::cli::Subcommand::kAggregate: status = RunAggregateFromFlags(); break;
+    case carve::cli::Subcommand::kShard: status = RunShardFromFlags(); break;
     default: status = carve::cli::Dispatch(*cmd, args); break;
   }
   if (!status.ok()) {
