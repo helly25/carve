@@ -26,6 +26,7 @@
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "carve/cdb/cdb.h"
+#include "carve/sidecar/carve.pb.h"
 
 namespace carve::refresh {
 
@@ -122,6 +123,14 @@ struct RefreshStats {
 [[nodiscard]] absl::StatusOr<std::vector<cdb::CompileCommand>> BuildEntries(
     std::string_view aquery_proto,
     const Options& options);
+
+// Projects action `records` into compilation-database entries: each record with
+// a source becomes one entry whose `file` is made absolute against `directory`
+// (the execroot). Records without a source are skipped. Shared by `refresh` and
+// `aggregate` (which merges independently-produced sidecars into one database).
+[[nodiscard]] std::vector<cdb::CompileCommand> EntriesFromRecords(
+    const ActionRecords& records,
+    std::string_view directory);
 
 }  // namespace carve::refresh
 

@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -31,6 +32,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "carve/aggregate/aggregate.h"
 #include "carve/cli/cli.h"
 #include "carve/process/process.h"
 #include "carve/prune/prune.h"
@@ -61,6 +63,13 @@ ABSL_FLAG(
     "compilation database do not clobber each other.");
 ABSL_FLAG(int, jobs, 0, "Parallel scan-deps worker threads; 0 means use the hardware concurrency.");
 ABSL_FLAG(int, prune_after_days, 30, "prune: drop sidecar records not refreshed within this many days.");
+ABSL_FLAG(
+    std::string,
+    sidecars,
+    "",
+    "aggregate: comma-separated sidecar (shard) paths to merge into one "
+    "compilation database written to --output. --directory should be the shared "
+    "execution root the shards' sources are relative to.");
 
 namespace {
 
@@ -150,6 +159,25 @@ absl::Status RunPruneFromFlags() {
   return absl::OkStatus();
 }
 
+// Runs the `aggregate` subcommand from flags: merge independently-produced
+// sidecars (e.g. parallel build shards) listed in --sidecars into one
+// compilation database at --output.
+absl::Status RunAggregateFromFlags() {
+  std::vector<std::filesystem::path> sidecars;
+  for (const std::string_view path : absl::StrSplit(absl::GetFlag(FLAGS_sidecars), ',', absl::SkipEmpty())) {
+    sidecars.emplace_back(path);
+  }
+  if (sidecars.empty()) {
+    return absl::InvalidArgumentError("aggregate: --sidecars must list at least one sidecar path");
+  }
+  MBO_ASSIGN_OR_RETURN(
+      const int entries,
+      carve::aggregate::RunAggregate(sidecars, absl::GetFlag(FLAGS_output), absl::GetFlag(FLAGS_directory)));
+  std::cerr << absl::StreamFormat(
+      "carve: wrote %d entries from %d sidecar(s)\n", entries, static_cast<int>(sidecars.size()));
+  return absl::OkStatus();
+}
+
 int RealMain(int argc, char** argv) {
   absl::SetProgramUsageMessage(kUsage);
   const std::vector<char*> positional = absl::ParseCommandLine(argc, argv);
@@ -180,6 +208,7 @@ int RealMain(int argc, char** argv) {
   switch (*cmd) {
     case carve::cli::Subcommand::kRefresh: status = RunRefreshFromFlags(); break;
     case carve::cli::Subcommand::kPrune: status = RunPruneFromFlags(); break;
+    case carve::cli::Subcommand::kAggregate: status = RunAggregateFromFlags(); break;
     default: status = carve::cli::Dispatch(*cmd, args); break;
   }
   if (!status.ok()) {
