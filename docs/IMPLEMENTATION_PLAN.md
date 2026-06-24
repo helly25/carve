@@ -12,23 +12,23 @@ Last reviewed: 2026-06-23.
 
 Legend: ✅ done & tested · 🟡 partial · ⬜ not started.
 
-| Capability                                                    | State | Notes                                                                 |
-| ------------------------------------------------------------- | ----- | --------------------------------------------------------------------- |
-| `io` (atomic write, read)                                     | ✅     |                                                                       |
-| `process` (subprocess capture)                                | ✅     | POSIX; Windows later                                                  |
-| `cdb` (model + JSON + atomic write)                           | ✅     | deterministic output                                                  |
-| `command` (de-Bazel argv)                                     | 🟡     | M2 quirks landed; nvcc/emscripten/cross-host canonicalization left    |
-| `aquery` (proto parse, param-file expand, path resolve)       | ✅     | vendored trimmed `analysis_v2.proto`                                  |
-| `sidecar` (schema, Load/Save, diff, project-scoped merge)     | ✅     | `HeaderIndex` built & persisted; `written_at` stamped                 |
-| `refresh` (in-process aquery, execroot, merge, multi-project) | ✅     | M1 done: scan-deps, incremental, staleness, header index, `--jobs`    |
-| `scan_deps` (clang `DependencyScanningTool`)                  | ✅     | wired into `refresh`; gated linux+macos                               |
-| `cli` + `//carve:carve`                                       | 🟡     | `refresh` only; `aggregate`/`shard`/`prune` are `Unimplemented` stubs |
-| e2e harness, CI, pre-commit, hermetic-llvm, proto matchers    | ✅     |                                                                       |
-| Layer B (`carve_refresh` rule)                                | ✅     | `bazel run //:refresh`; run-based (nested-bazel resolved)             |
-| Layer C (aspect + shards)                                     | ⬜     |                                                                       |
-| Differential harness vs Hedron / clangd validation            | ✅     | `tools/cdb_diff.py` + `docs/differential-report.md` (M3)              |
-| Distribution (`.bcr/`, prebuilt binaries, release)            | ⬜     |                                                                       |
-| Windows                                                       | ⬜     |                                                                       |
+| Capability                                                    | State | Notes                                                              |
+| ------------------------------------------------------------- | ----- | ------------------------------------------------------------------ |
+| `io` (atomic write, read)                                     | ✅     |                                                                    |
+| `process` (subprocess capture)                                | ✅     | POSIX; Windows later                                               |
+| `cdb` (model + JSON + atomic write)                           | ✅     | deterministic output                                               |
+| `command` (de-Bazel argv)                                     | 🟡     | M2 quirks landed; nvcc/emscripten/cross-host canonicalization left |
+| `aquery` (proto parse, param-file expand, path resolve)       | ✅     | vendored trimmed `analysis_v2.proto`                               |
+| `sidecar` (schema, Load/Save, diff, project-scoped merge)     | ✅     | `HeaderIndex` built & persisted; `written_at` stamped              |
+| `refresh` (in-process aquery, execroot, merge, multi-project) | ✅     | M1 done: scan-deps, incremental, staleness, header index, `--jobs` |
+| `scan_deps` (clang `DependencyScanningTool`)                  | ✅     | wired into `refresh`; gated linux+macos                            |
+| `cli` + `//carve:carve`                                       | 🟡     | `refresh` + `prune`; `aggregate`/`shard` are `Unimplemented` stubs |
+| e2e harness, CI, pre-commit, hermetic-llvm, proto matchers    | ✅     |                                                                    |
+| Layer B (`carve_refresh` rule)                                | ✅     | `bazel run //:refresh`; run-based (nested-bazel resolved)          |
+| Layer C (aspect + shards)                                     | ⬜     |                                                                    |
+| Differential harness vs Hedron / clangd validation            | ✅     | `tools/cdb_diff.py` + `docs/differential-report.md` (M3)           |
+| Distribution (`.bcr/`, prebuilt binaries, release)            | ⬜     |                                                                    |
+| Windows                                                       | ⬜     |                                                                    |
 
 Bottom line: **Layer A produces a correct-shaped CDB with header coverage and
 incremental refresh.** scan-deps is wired into `refresh`; unchanged actions
@@ -96,7 +96,7 @@ Acceptance: aspect emits shards; `carve aggregate` merges; editing one source re
 Acceptance: a bzlmod consumer can `bazel_dep(name = "carve")` and get a working CDB; tagged release.
 
 ## Cross-cutting / parallelizable
-- `prune` subcommand (GC by `written_at`; needs M1's timestamps).
+- ✅ `prune` subcommand (`carve/prune`): GC sidecar rows whose `written_at` is older than `--prune_after_days`; unstamped rows kept. `carve prune --sidecar=... --prune_after_days=30`.
 - `aggregate` / `shard` subcommands (land with M5).
 - Parallel scan-deps (`--jobs`) — fold into M1.
 - Property tests: idempotency (have a dogfood check; codify), cross-host determinism (needs M2 canonicalization).

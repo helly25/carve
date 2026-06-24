@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -32,6 +33,7 @@
 #include "absl/time/time.h"
 #include "carve/cli/cli.h"
 #include "carve/process/process.h"
+#include "carve/prune/prune.h"
 #include "carve/refresh/refresh.h"
 #include "carve/scan_deps/scan_deps.h"
 #include "mbo/status/status_macros.h"
@@ -58,6 +60,7 @@ ABSL_FLAG(
     "Project identifier; scopes the sidecar merge so projects sharing a "
     "compilation database do not clobber each other.");
 ABSL_FLAG(int, jobs, 0, "Parallel scan-deps worker threads; 0 means use the hardware concurrency.");
+ABSL_FLAG(int, prune_after_days, 30, "prune: drop sidecar records not refreshed within this many days.");
 
 namespace {
 
@@ -136,6 +139,17 @@ absl::Status RunRefreshFromFlags() {
   return absl::OkStatus();
 }
 
+// Runs the `prune` subcommand from flags: GC sidecar rows not refreshed within
+// --prune_after_days.
+absl::Status RunPruneFromFlags() {
+  const std::int64_t now = absl::ToUnixSeconds(absl::Now());
+  const std::int64_t cutoff = now - (std::int64_t{absl::GetFlag(FLAGS_prune_after_days)} * 86'400);
+  MBO_ASSIGN_OR_RETURN(const int removed, carve::prune::RunPrune(absl::GetFlag(FLAGS_sidecar), cutoff));
+  std::cerr << absl::StreamFormat(
+      "carve: pruned %d record(s) not refreshed in %d days\n", removed, absl::GetFlag(FLAGS_prune_after_days));
+  return absl::OkStatus();
+}
+
 int RealMain(int argc, char** argv) {
   absl::SetProgramUsageMessage(kUsage);
   const std::vector<char*> positional = absl::ParseCommandLine(argc, argv);
@@ -165,6 +179,7 @@ int RealMain(int argc, char** argv) {
   absl::Status status;
   switch (*cmd) {
     case carve::cli::Subcommand::kRefresh: status = RunRefreshFromFlags(); break;
+    case carve::cli::Subcommand::kPrune: status = RunPruneFromFlags(); break;
     default: status = carve::cli::Dispatch(*cmd, args); break;
   }
   if (!status.ok()) {
