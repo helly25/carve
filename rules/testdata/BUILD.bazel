@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Copyright (c) The helly25/carve authors (github.com/helly25/carve)
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//rules:__subpackages__"])
+
+# A dependency-free library: the Layer C aspect tests shard it without fanning
+# out across external deps, and scan-deps must discover `lib.h` from `lib.cc`.
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    hdrs = ["lib.h"],
+)

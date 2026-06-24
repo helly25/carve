@@ -17,11 +17,14 @@ load(":carve_test.bzl", "carve_rules_test_suite")
 
 package(default_visibility = ["//visibility:public"])
 
-# The de-Bazel rule (carve_refresh) and its launcher template, consumed by
-# `load("@helly25_carve//rules:carve.bzl", "carve_refresh")`.
+# The carve rules and their launcher templates, consumed by
+# `load("@helly25_carve//rules:carve.bzl", "carve_refresh", "carve_aspect_refresh")`
+# and `load("@helly25_carve//rules:cc_carve_aspect.bzl", "cc_carve_aspect")`.
 exports_files([
     "carve.bzl",
+    "cc_carve_aspect.bzl",
     "carve_refresh.tpl.sh",
+    "carve_aggregate.tpl.sh",
 ])
 
 carve_rules_test_suite(name = "carve_rules_test")

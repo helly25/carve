@@ -206,6 +206,26 @@ follows [SemVer](https://semver.org/).
   matches `refresh`, so shards merge cleanly via `aggregate`. Verified end-to-end:
   `shard` -> `aggregate` produces a valid CDB. Unit-tested; de-stubs the `shard` CLI
   command. The emitting Starlark aspect (the remaining half of Layer C) is next.
+- M5 Layer C: the emitting aspect (`rules/cc_carve_aspect.bzl`) and
+  `carve_aspect_refresh` (`rules/carve.bzl`). `cc_carve_aspect` walks the cc graph
+  and schedules one cacheable `carve shard` build action per compile action —
+  reading the fully-expanded command straight from `action.argv` (Bazel already
+  expands param files) — collected in the `carve_shards` output group.
+  `carve_aspect_refresh` is a `bazel run` target that builds those shards, then
+  aggregates them into `compile_commands.json` against the real execroot. A
+  shard's content is a function of its compile command alone, so its one input is
+  the `command_file`: Bazel re-runs only the shards whose command changed (a new
+  flag/define/dep) — the per-action incrementality Layers A/B cannot offer
+  (CARVE_DESIGN §4.7). Editing source/header *content* leaves the command (and the
+  database entry) unchanged, so no re-shard is needed. Shards are therefore not
+  header-scanned (`carve shard --scan=false`): the database does not use headers,
+  and delegating invalidation to Bazel avoids scanning every TU in a build action.
+  Verified: the aspect shards a leaf target and (as a stress test) the entire LLVM
+  graph cleanly; `shard` -> `aggregate` yields a valid CDB; an analysis test plus a
+  `build_test` exercise the wiring and the sandboxed shard action in CI. **M5 (the
+  full Layer C data path: aspect + shard + aggregate) is complete.**
+- `carve shard --scan` flag (default `true`): standalone `shard` scans headers as
+  before; the Layer C aspect opts out with `--scan=false`.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

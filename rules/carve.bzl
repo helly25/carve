@@ -20,6 +20,8 @@ trap (lock/server contention, sandboxing). Running carve *after* the outer build
 via `bazel run`, keeps the server free. (CARVE_DESIGN.md sections 3.1, 4.6.)
 """
 
+load(":cc_carve_aspect.bzl", "CarveShardsInfo", "cc_carve_aspect")
+
 def _carve_refresh_impl(ctx):
     carve = ctx.executable.carve
     launcher = ctx.actions.declare_file(ctx.label.name + ".sh")
@@ -69,6 +71,82 @@ carve_refresh = rule(
             doc = "The carve binary to run.",
         ),
         "_launcher": attr.label(default = Label("//rules:carve_refresh.tpl.sh"), allow_single_file = True),
+        "_bash_runfiles": attr.label(default = Label("@bazel_tools//tools/bash/runfiles")),
+    },
+)
+
+def _carve_aspect_refresh_impl(ctx):
+    carve = ctx.executable.carve
+
+    # cc_carve_aspect ran over each target's transitive cc graph and produced one
+    # shard per compile action; gather them all.
+    shards = depset(transitive = [t[CarveShardsInfo].shards for t in ctx.attr.targets])
+    shard_list = shards.to_list()
+
+    # The launcher resolves shards from runfiles via rlocation; hand it the keys
+    # (one `<workspace>/<short_path>` per line) rather than baking N paths into
+    # the template.
+    manifest = ctx.actions.declare_file(ctx.label.name + ".shards_manifest")
+    ctx.actions.write(
+        manifest,
+        "".join(["{}/{}\n".format(ctx.workspace_name, shard.short_path) for shard in shard_list]),
+    )
+
+    launcher = ctx.actions.declare_file(ctx.label.name + ".sh")
+    ctx.actions.expand_template(
+        template = ctx.file._launcher,
+        output = launcher,
+        is_executable = True,
+        substitutions = {
+            "@@CARVE_RLOCATION@@": "{}/{}".format(ctx.workspace_name, carve.short_path),
+            "@@MANIFEST_RLOCATION@@": "{}/{}".format(ctx.workspace_name, manifest.short_path),
+            "@@OUTPUT@@": ctx.attr.output,
+            "@@PROJECT_ID@@": ctx.attr.project_id,
+        },
+    )
+    runfiles = ctx.runfiles(files = [carve, manifest] + shard_list).merge_all([
+        ctx.attr.carve[DefaultInfo].default_runfiles,
+        ctx.attr._bash_runfiles[DefaultInfo].default_runfiles,
+    ])
+    return [DefaultInfo(
+        executable = launcher,
+        # Building this target builds every shard (each a cacheable CarveShard
+        # action), so a plain `bazel build` (and `build_test`) exercises the whole
+        # Layer C shard-production path.
+        files = depset([launcher] + shard_list),
+        runfiles = runfiles,
+    )]
+
+carve_aspect_refresh = rule(
+    implementation = _carve_aspect_refresh_impl,
+    executable = True,
+    doc = """Layer C: build per-action shards via `cc_carve_aspect`, then `bazel run` to aggregate them.
+
+`bazel run //:refresh_aspect` first builds one cacheable shard per compile action
+across `targets` (so an edit re-shards only what changed), then merges the shards
+into `compile_commands.json`. Unlike `carve_refresh`, `targets` are real label
+dependencies (the aspect must analyze them), trading whole-graph analysis for
+per-action build-cache incrementality (CARVE_DESIGN.md section 4.7).""",
+    attrs = {
+        "targets": attr.label_list(
+            aspects = [cc_carve_aspect],
+            doc = "cc targets whose transitive compile actions are sharded (real deps, so the aspect runs).",
+        ),
+        "output": attr.string(
+            default = "compile_commands.json",
+            doc = "Compilation-database path, relative to the workspace root.",
+        ),
+        "project_id": attr.string(
+            default = "",
+            doc = "Project id stamped on the aggregated database.",
+        ),
+        "carve": attr.label(
+            default = Label("//carve:carve"),
+            executable = True,
+            cfg = "target",
+            doc = "The carve binary to run for aggregation.",
+        ),
+        "_launcher": attr.label(default = Label("//rules:carve_aggregate.tpl.sh"), allow_single_file = True),
         "_bash_runfiles": attr.label(default = Label("@bazel_tools//tools/bash/runfiles")),
     },
 )

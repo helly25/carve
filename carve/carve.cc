@@ -73,6 +73,13 @@ ABSL_FLAG(
     "execution root the shards' sources are relative to.");
 ABSL_FLAG(std::string, action_key, "", "shard: identity key of the compile action this shard describes.");
 ABSL_FLAG(
+    bool,
+    scan,
+    true,
+    "shard: scan headers with scan-deps. The Layer C aspect passes --scan=false: "
+    "the compilation database does not use headers, and per-action invalidation "
+    "is handled by Bazel re-running the shard when its command changes.");
+ABSL_FLAG(
     std::string,
     command_file,
     "",
@@ -241,7 +248,8 @@ absl::Status RunShardFromFlags() {
       .directory = directory,
       .xcode_developer_dir = xcode_developer_dir,
       .xcode_sdkroot = xcode_sdkroot,
-      .scanner = carve::scan_deps::ScanDependencies,
+      .scanner = absl::GetFlag(FLAGS_scan) ? carve::shard::HeaderScanner(carve::scan_deps::ScanDependencies)
+                                           : carve::shard::HeaderScanner(),
       .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
       .out_path = out,
   };
