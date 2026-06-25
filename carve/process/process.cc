@@ -21,21 +21,31 @@
 
 #include <array>
 #include <cerrno>
-#include <cstring>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 
 namespace carve::process {
 namespace {
 
+// A process terminated by signal N is reported as 128 + N (shell convention).
+constexpr int kSignalExitBase = 128;
+// Exit status used when the child's exec fails (e.g. program not found); 127 is
+// the shell convention for "command not found".
+constexpr int kExecFailedExitCode = 127;
+// Read chunk size when draining the child's pipes.
+constexpr std::size_t kReadChunkBytes = 4'096;
+
+// Builds a status from the current `errno`. Uses `absl::ErrnoToStatus`, which
+// formats the message with a thread-safe `strerror` internally and maps the
+// errno to the matching `absl::StatusCode` (`std::strerror` is not thread-safe).
 absl::Status ErrnoError(std::string_view what) {
-  return absl::UnknownError(absl::StrCat(what, ": ", std::strerror(errno)));
+  return absl::ErrnoToStatus(errno, what);
 }
 
 // Drains `out_fd` and `err_fd` into the result strings until both reach EOF,
@@ -53,10 +63,12 @@ void DrainPipes(int out_fd, int err_fd, CommandResult& result) {
       break;
     }
     for (std::size_t i = 0; i < fds.size(); ++i) {
+      // POSIX poll flags are signed int macros; the bitmask test is the idiomatic form.
+      // NOLINTNEXTLINE(hicpp-signed-bitwise)
       if (fds[i].fd < 0 || (fds[i].revents & (POLLIN | POLLHUP | POLLERR)) == 0) {
         continue;
       }
-      std::array<char, 4'096> buffer{};
+      std::array<char, kReadChunkBytes> buffer{};
       const ssize_t got = ::read(fds[i].fd, buffer.data(), buffer.size());
       if (got > 0) {
         sinks[i]->append(buffer.data(), static_cast<std::size_t>(got));
@@ -68,9 +80,9 @@ void DrainPipes(int out_fd, int err_fd, CommandResult& result) {
     }
   }
   // Close anything still open (e.g. if poll() failed and broke the loop).
-  for (pollfd& fd : fds) {
-    if (fd.fd >= 0) {
-      ::close(fd.fd);
+  for (const pollfd& entry : fds) {
+    if (entry.fd >= 0) {
+      ::close(entry.fd);
     }
   }
 }
@@ -84,9 +96,12 @@ absl::StatusOr<CommandResult> Run(absl::Span<const std::string> argv) {
 
   std::array<int, 2> out_pipe{};
   std::array<int, 2> err_pipe{};
+  // macOS has no pipe2(); the child closes every pipe fd before exec (below), so none leak.
+  // NOLINTNEXTLINE(android-cloexec-pipe)
   if (::pipe(out_pipe.data()) != 0) {
     return ErrnoError("pipe(stdout)");
   }
+  // NOLINTNEXTLINE(android-cloexec-pipe)
   if (::pipe(err_pipe.data()) != 0) {
     ::close(out_pipe[0]);
     ::close(out_pipe[1]);
@@ -95,8 +110,8 @@ absl::StatusOr<CommandResult> Run(absl::Span<const std::string> argv) {
 
   const pid_t pid = ::fork();
   if (pid < 0) {
-    for (const int fd : {out_pipe[0], out_pipe[1], err_pipe[0], err_pipe[1]}) {
-      ::close(fd);
+    for (const int descriptor : {out_pipe[0], out_pipe[1], err_pipe[0], err_pipe[1]}) {
+      ::close(descriptor);
     }
     return ErrnoError("fork");
   }
@@ -105,17 +120,19 @@ absl::StatusOr<CommandResult> Run(absl::Span<const std::string> argv) {
     // Child: wire stdout/stderr to the pipes and exec.
     ::dup2(out_pipe[1], STDOUT_FILENO);
     ::dup2(err_pipe[1], STDERR_FILENO);
-    for (const int fd : {out_pipe[0], out_pipe[1], err_pipe[0], err_pipe[1]}) {
-      ::close(fd);
+    for (const int descriptor : {out_pipe[0], out_pipe[1], err_pipe[0], err_pipe[1]}) {
+      ::close(descriptor);
     }
     std::vector<char*> c_argv;
     c_argv.reserve(argv.size() + 1);
     for (const std::string& arg : argv) {
+      // execvp wants char* const[]; argv outlives the call and is not modified.
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
       c_argv.push_back(const_cast<char*>(arg.c_str()));
     }
     c_argv.push_back(nullptr);
     ::execvp(c_argv[0], c_argv.data());
-    ::_exit(127);  // Reached only if exec failed (e.g. program not found).
+    ::_exit(kExecFailedExitCode);  // Reached only if exec failed (e.g. program not found).
   }
 
   // Parent: close write ends, drain, and reap.
@@ -133,7 +150,7 @@ absl::StatusOr<CommandResult> Run(absl::Span<const std::string> argv) {
   if (WIFEXITED(status)) {
     result.exit_code = WEXITSTATUS(status);
   } else if (WIFSIGNALED(status)) {
-    result.exit_code = 128 + WTERMSIG(status);
+    result.exit_code = kSignalExitBase + WTERMSIG(status);
   }
   return result;
 }

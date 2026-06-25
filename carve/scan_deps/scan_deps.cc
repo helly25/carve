@@ -27,7 +27,6 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/DependencyScanning/DependencyScanningService.h"
 #include "clang/Tooling/DependencyScanningTool.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 
@@ -48,7 +47,8 @@ class CapturingDiagnosticConsumer : public clang::DiagnosticConsumer {
     if (level < clang::DiagnosticsEngine::Error) {
       return;
     }
-    llvm::SmallString<256> message;
+    constexpr unsigned kMessageInlineCapacity = 256;
+    llvm::SmallString<kMessageInlineCapacity> message;
     info.FormatDiagnostic(message);
     if (!sink_.empty()) {
       sink_.push_back('\n');
@@ -69,8 +69,8 @@ std::vector<std::string> ParseMakeDependencies(std::string_view make) {
   std::vector<std::string> deps;
   std::string current;
   for (std::string_view::size_type i = 0; i < rest.size(); ++i) {
-    const char ch = rest[i];
-    if (ch == '\\' && i + 1 < rest.size()) {
+    const char character = rest[i];
+    if (character == '\\' && i + 1 < rest.size()) {
       const char next = rest[i + 1];
       if (next == '\n' || next == '\r') {
         ++i;  // Line continuation.
@@ -81,14 +81,14 @@ std::vector<std::string> ParseMakeDependencies(std::string_view make) {
         ++i;
         continue;
       }
-      current.push_back(ch);
-    } else if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+      current.push_back(character);
+    } else if (character == ' ' || character == '\t' || character == '\n' || character == '\r') {
       if (!current.empty()) {
         deps.push_back(current);
         current.clear();
       }
     } else {
-      current.push_back(ch);
+      current.push_back(character);
     }
   }
   if (!current.empty()) {
