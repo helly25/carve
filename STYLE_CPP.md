@@ -12,8 +12,9 @@ an AI assistant) can follow them without reverse-engineering the tooling.
 - **`clang-format`** with [`.clang-format`](.clang-format) formats all C++ code. Run
   it; do not hand-format against it. CI rejects any reformatting diff.
 - **`clang-tidy`** with [`.clang-tidy`](.clang-tidy) (`WarningsAsErrors: true`) runs **locally**
-  against a `compile_commands.json` you generate with
-  `bazel run @bazel_compile_commands_extractor//:refresh_all`. **CI does not run it** (no
+  against a `compile_commands.json` you generate with `bazel run //:refresh_compile_commands`
+  (the helly25 fork of the Hedron extractor, dev-only; it passes `--config=clang` so the
+  captured commands use the hermetic toolchain). **CI does not run it** (no
   compile DB there), so CI's hard gate is the compiler `-Werror` in the bazel matrix; still treat
   a clang-tidy finding as a must-fix before pushing. The enabled set is broad: `abseil-*`,
   `bugprone-*`, `cppcoreguidelines-*`, `google-*`, `misc-*`, `modernize-*`, `performance-*`,

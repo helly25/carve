@@ -24,9 +24,15 @@ module(
     version = "0.0.1",
 )
 
+# Development-only modules: the Hedron compile-commands extractor (helly25 fork)
+# for clangd + local clang-tidy, and dwyu. All dev_dependency, so they are used
+# only when carve is the root module and never propagate to dependents. See
+# STYLE_CPP.md ("Toolchain") for how clang-tidy is run locally.
+include("//bazelmod:dev.MODULE.bazel")
+
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "rules_cc", version = "0.2.19")
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "abseil-cpp", version = "20260107.1")
