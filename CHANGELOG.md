@@ -229,6 +229,12 @@ follows [SemVer](https://semver.org/).
   path: aspect + shard + aggregate) is complete.**
 - `carve shard --scan` flag (default `true`): standalone `shard` scans headers as
   before; the Layer C aspect opts out with `--scan=false`.
+- Adopt the helly25 house C++ style guide as `STYLE_CPP.md` (mirrors `mbo`/`xff`,
+  adapted to C++23 and the `CARVE_` macro prefix; macros consumed from the `mbo`
+  dependency keep their `MBO_` prefix). It is the detailed companion to `RULES.md`
+  (idioms, error handling, output/`AbslStringify`, concurrency, protobuf,
+  GoogleTest) and is referenced from `RULES.md` and `AGENTS.md`. carve's
+  `.clang-format` and `.clang-tidy` already match mbo's.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).
