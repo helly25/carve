@@ -256,6 +256,18 @@ follows [SemVer](https://semver.org/).
   stay enabled, carve just does not chase them yet. (clang-tidy is run with a real, version-
   matched clang-tidy; the hermetic `llvm`-minimal toolchain ships none, and a dependency's bare
   `version` file shadows libc++ `<version>` unless its include dir is prepended.)
+- M6 release scaffolding (source-only, mirrors the helly25 house pattern): `.bcr/`
+  metadata (`metadata.template.json`, `source.template.json`, `presubmit.yml`),
+  `.github/workflows/release.yml` (a numeric-semver tag drives the `bazel-contrib`
+  release ruleset) + `publish.yaml` (mirror to the Bazel Central Registry) +
+  `release_prep.sh` (validates the tag matches `MODULE.bazel` and the CHANGELOG,
+  emits an empty root `BUILD.bazel`, comments the dev `include`, excludes dev-only
+  paths, builds the source tarball, and prints the Keep-a-Changelog release notes),
+  plus `tools/header.txt`. README/IMPLEMENTATION_PLAN updated. Nothing publishes
+  until a tag is pushed; prebuilt binaries are out of scope (source-only). Known
+  gap before a real release: carve's C++17 scoping for the from-source LLVM is in
+  `.bazelrc` and does not propagate to consumers, so `//carve:carve` may not build
+  for a bzlmod consumer until that moves into the BUILD graph.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

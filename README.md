@@ -7,9 +7,13 @@ under [Apache-2.0](LICENSE).
 
 ## Status
 
-Pre-alpha. The repository currently contains only the design and bootstrap.
-See [CARVE_DESIGN.md](CARVE_DESIGN.md) for the architecture, layering, and
-six-month build-out plan.
+Working, pre-release. All three layers are implemented and tested - Layer A
+(`carve refresh`), Layer B (`bazel run //:refresh`), and Layer C (the
+`cc_carve_aspect` aspect emitting per-action shards) - along with the `refresh`,
+`aggregate`, `shard`, and `prune` subcommands. Not yet published to the Bazel
+Central Registry; the release tooling is in place. See
+[CARVE_DESIGN.md](CARVE_DESIGN.md) for the architecture and
+[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) for milestone status.
 
 ## What it does
 
@@ -40,7 +44,14 @@ bazel run //:refresh
 bazel run //:carve -- refresh --targets=//foo/... --output=compile_commands.json
 ```
 
-In a consumer workspace, add the rule from a `BUILD` file:
+In a consumer workspace, depend on carve in `MODULE.bazel` (once it is published
+to the Bazel Central Registry):
+
+```python
+bazel_dep(name = "helly25_carve", version = "<release>")
+```
+
+then add the rule from a `BUILD` file:
 
 ```python
 load("@helly25_carve//rules:carve.bzl", "carve_refresh")
@@ -50,8 +61,9 @@ carve_refresh(name = "refresh", targets = ["//..."])
 
 `carve_refresh` is a **`bazel run`** target, not a build artifact: carve invokes
 `bazel aquery`, and spawning bazel inside a build action is the nested-bazel
-trap. Layer C (an aspect emitting per-action shards, opt-in) is not yet
-implemented.
+trap. For huge repos there is also Layer C - `cc_carve_aspect` +
+`carve_aspect_refresh` (`rules/cc_carve_aspect.bzl`, `rules/carve.bzl`) schedule
+one individually-cacheable shard per compile action and aggregate them.
 
 ## Build requirements
 
