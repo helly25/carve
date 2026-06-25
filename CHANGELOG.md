@@ -244,6 +244,18 @@ follows [SemVer](https://semver.org/).
   clang-tidy. (carve replaces Hedron, but uses it for its own dev loop until it can
   self-host.) Also pulls in `depend_on_what_you_use`, and bumps `rules_cc` to 0.2.19
   to match the dev graph.
+- Apply clang-tidy across the first-party sources. Fixes: replace the non-thread-safe
+  `std::strerror` with `absl::ErrnoToStatus` (`concurrency-mt-unsafe`); name magic numbers;
+  rename too-short identifiers; `std::array` instead of a C array; drop an unused include
+  and add `<cstddef>`; unsigned bit operations. `NOLINT`-with-reason the genuinely-intentional
+  cases: the `execvp` `const_cast`, `pipe()` (macOS has no `pipe2`; the child closes every fd
+  before exec), the POSIX-poll-flag bitmask, and `AppendKey`'s two `string_view` params. The
+  systematic stylistic findings (`operator[]` bounds checks, file-local anonymous namespaces)
+  and the misconfiguration noise (`llvm-header-guard` wanting absolute-path guards; system
+  symbols `misc-include-cleaner` wants internal SDK headers for) are left in place - the checks
+  stay enabled, carve just does not chase them yet. (clang-tidy is run with a real, version-
+  matched clang-tidy; the hermetic `llvm`-minimal toolchain ships none, and a dependency's bare
+  `version` file shadows libc++ `<version>` unless its include dir is prepended.)
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

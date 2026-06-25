@@ -47,12 +47,13 @@ std::filesystem::path TempSibling(const std::filesystem::path& path) {
 }  // namespace
 
 absl::Status WriteAtomically(const std::filesystem::path& path, std::string_view content) {
-  std::error_code ec;
+  std::error_code error_code;
   const std::filesystem::path parent = path.parent_path();
   if (!parent.empty()) {
-    std::filesystem::create_directories(parent, ec);
-    if (ec) {
-      return absl::UnknownError(absl::StrCat("failed to create directory '", parent.string(), "': ", ec.message()));
+    std::filesystem::create_directories(parent, error_code);
+    if (error_code) {
+      return absl::UnknownError(
+          absl::StrCat("failed to create directory '", parent.string(), "': ", error_code.message()));
     }
   }
 
@@ -65,22 +66,22 @@ absl::Status WriteAtomically(const std::filesystem::path& path, std::string_view
     stream.write(content.data(), static_cast<std::streamsize>(content.size()));
     stream.close();
     if (!stream) {
-      std::filesystem::remove(tmp, ec);
+      std::filesystem::remove(tmp, error_code);
       return absl::UnknownError(absl::StrCat("failed to write temp file '", tmp.string(), "'"));
     }
   }
 
-  std::filesystem::rename(tmp, path, ec);
-  if (ec) {
-    std::filesystem::remove(tmp, ec);
+  std::filesystem::rename(tmp, path, error_code);
+  if (error_code) {
+    std::filesystem::remove(tmp, error_code);
     return absl::UnknownError(absl::StrCat("failed to rename '", tmp.string(), "' to '", path.string(), "'"));
   }
   return absl::OkStatus();
 }
 
 absl::StatusOr<std::string> ReadFile(const std::filesystem::path& path) {
-  std::error_code ec;
-  if (!std::filesystem::exists(path, ec) || ec) {
+  std::error_code error_code;
+  if (!std::filesystem::exists(path, error_code) || error_code) {
     return absl::NotFoundError(absl::StrCat("no such file '", path.string(), "'"));
   }
   std::ifstream stream(path, std::ios::binary);
