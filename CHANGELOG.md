@@ -235,6 +235,15 @@ follows [SemVer](https://semver.org/).
   (idioms, error handling, output/`AbslStringify`, concurrency, protobuf,
   GoogleTest) and is referenced from `RULES.md` and `AGENTS.md`. carve's
   `.clang-format` and `.clang-tidy` already match mbo's.
+- Adopt the Hedron compile-commands extractor (helly25 fork) as a dev module in
+  `bazelmod/dev.MODULE.bazel` (`include`d from `MODULE.bazel`, all `dev_dependency`
+  so nothing propagates to dependents), mirroring mbo/xff. carve adds its own
+  `//:refresh_compile_commands` target (scoped to `//carve/...` with `--config=clang`
+  so the captured commands use the hermetic toolchain); `bazel run
+  //:refresh_compile_commands` writes a `compile_commands.json` for clangd and local
+  clang-tidy. (carve replaces Hedron, but uses it for its own dev loop until it can
+  self-host.) Also pulls in `depend_on_what_you_use`, and bumps `rules_cc` to 0.2.19
+  to match the dev graph.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
   owning-action index (owners sorted, lex-min canonical) from action records —
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).

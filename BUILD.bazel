@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile_commands")
 load("//rules:carve.bzl", "carve_refresh")
 
 package(default_visibility = ["//visibility:private"])
@@ -42,4 +43,17 @@ alias(
     name = "carve",
     actual = "//carve:carve",
     visibility = ["//visibility:public"],
+)
+
+# Dev-only: generate compile_commands.json for clangd + local clang-tidy via the
+# (helly25 fork of the) Hedron extractor - the trusted path while carve's own
+# //:refresh is the tool under test. `--config=clang` selects the hermetic LLVM
+# toolchain (see .bazelrc) so the captured commands match the real build.
+# `bazel run //:refresh_compile_commands`. The macro and its dep are dev-only
+# (bazelmod/dev.MODULE.bazel); consumers never load this file.
+refresh_compile_commands(
+    name = "refresh_compile_commands",
+    targets = {
+        "//carve/...": "--config=clang",
+    },
 )

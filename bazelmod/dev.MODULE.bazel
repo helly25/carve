@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (c) The helly25/carve authors (github.com/helly25/carve)
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Development-only modules (mirrors helly25/mbo + helly25/xff).
+
+`include`d from MODULE.bazel. Everything here is `dev_dependency = True`, so it
+is used only when carve is the root module (local development and CI) and never
+propagates to projects that depend on carve.
+
+The irony is deliberate: carve exists to replace Hedron's compile-commands
+extractor, but until carve can generate its own `compile_commands.json` for its
+own tree, we use the (helly25 fork of the) Hedron extractor to feed clangd and
+clang-tidy during development:
+
+    bazel run @bazel_compile_commands_extractor//:refresh_all
+"""
+
+# Hedron's Compile Commands Extractor (helly25 fork). carve defines its own
+# `//:refresh_compile_commands` target (it needs `--config=clang` in the targets
+# dict for the hermetic toolchain), so the `refresh_compile_commands` macro is
+# expanded in carve's own repo - which means the module must be visible under its
+# canonical name `@hedron_compile_commands` (the macro references it internally).
+# (mbo/xff use a `repo_name = "bazel_compile_commands_extractor"` alias instead,
+# because they invoke the fork's pre-built `:refresh_all` target rather than
+# defining their own.)
+bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
+git_override(
+    module_name = "hedron_compile_commands",
+    commit = "75ba4c31d3b74fa5fb57c7508220571d4e52f828",
+    remote = "https://github.com/helly25/bazel-compile-commands-extractor.git",
+)
+
+# depend_on_what_you_use: layering check for the cc dependency graph (dev-only).
+bazel_dep(name = "depend_on_what_you_use", version = "0.16.0", dev_dependency = True)
