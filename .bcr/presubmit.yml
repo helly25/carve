@@ -1,0 +1,22 @@
+matrix:
+  bazel:
+    - 8.x
+    - 9.x
+  platform:
+    - ubuntu2404
+    - macos_arm64
+tasks:
+  verify_targets:
+    name: Verify build targets
+    platform: ${{ platform }}
+    bazel: ${{ bazel }}
+    build_flags:
+      - "--cxxopt=-std=c++23"
+    # `//carve:carve` is carve's only public C++ target (the per-module `_cc`
+    # libraries are visibility-private). Building it links the from-source LLVM
+    # libraries, so this is heavy. It is also the real consumability test: carve
+    # scopes the LLVM sources to C++17 via a per_file_copt in its .bazelrc, which
+    # does NOT propagate to consumers, so a clean build here may require that
+    # scoping to move into the BUILD graph first (see docs/IMPLEMENTATION_PLAN.md).
+    build_targets:
+      - "@helly25_carve//carve:carve"

@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (c) The helly25/carve authors (github.com/helly25/carve)
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Publish a release to the Bazel Central Registry (BCR). Called by release.yml
+# after a release is cut; can also be run from the Actions UI against a release
+# tag to retry a failed run.
+name: Publish to BCR
+
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        required: true
+        type: string
+    secrets:
+      BCR_PUBLISH_TOKEN:
+        required: true
+  workflow_dispatch: {}
+
+# Deny by default at the workflow level (checkov CKV2_GHA_1); the publish job
+# opts into contents:write. Empty (not read-all) so this reusable workflow does
+# not force the caller to grant every read scope.
+permissions: {}
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.4.1
+    with:
+      tag_name: ${{ inputs.tag_name || github.ref_name }}
+      registry_fork: helly25/bazel-central-registry
+      # Personal-account PAT: open a draft PR so the author can click "Ready for
+      # review" (GitHub forbids reviewing your own PR).
+      draft: true
+      # The release flow emits no SLSA attestations and uploads no workflow
+      # artifact, so compute integrity by downloading the tarball from the URL in
+      # .bcr/source.template.json instead.
+      attest: false
+      download_default_release_artifacts: false
+    secrets:
+      publish_token: ${{ secrets.BCR_PUBLISH_TOKEN }}
