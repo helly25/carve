@@ -145,10 +145,22 @@ binary (no LLVM link) would make the per-action tool tiny and the exec build che
 - ⬜ **Consumability gap (blocker for a real release):** a source-only consumer
   building `//carve:carve` builds the from-source `@llvm-project` libraries that
   `scan_deps` links, but carve scopes those to C++17 via a `per_file_copt` in its
-  `.bazelrc`, which does NOT propagate to consumers. Move that scoping into the
-  BUILD graph (e.g. copts on the `scan_deps` deps) so the binary builds for a
-  consumer without carve's `.bazelrc`. (The `.bcr/presubmit.yml` build of
-  `//carve:carve` is the test that will surface this.)
+  `.bazelrc`, which does NOT propagate to consumers. So a consumer building at
+  `-std=c++23` would fail to compile `@llvm-project`.
+  - **A build-graph config transition does NOT work (investigated + ruled out).**
+    A `cxxopt`-appending transition on `@llvm-project//clang:tooling` over-reaches:
+    its subgraph includes ~254 libc++/compiler-rt/libunwind targets (the
+    from-source runtimes, which need C++20+ for `std::ranges`), and a `cxxopt`
+    transition is global to the subgraph - it cannot do the *path-based* scoping
+    (llvm/clang only, excluding the runtimes) that the `per_file_copt` does. So the
+    C++17 scoping must stay a path-matched `per_file_copt`.
+  - **Therefore the fix is to ship the flags as a consumer `.bazelrc` fragment**
+    (the C++17 LLVM `per_file_copt`, the `scan_deps` `-fno-rtti`, and a C++23
+    scoping for carve's own sources) for consumers to copy/import, the same shape
+    mbo ships `llvm.MODULE.bazel`. The exact regexes depend on the consumer's
+    external-repo path form, so author + validate the fragment against a real
+    consumer workspace (or the `.bcr/presubmit.yml` build of `//carve:carve`) when
+    cutting the release.
 
 Acceptance: a bzlmod consumer can `bazel_dep(name = "helly25_carve")` and get a working CDB; tagged release.
 
