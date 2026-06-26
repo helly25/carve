@@ -38,6 +38,11 @@ common --cxxopt=-std=c++23 --host_cxxopt=-std=c++23
 # sources do not compile under -std=c++23 (they rely on transitive includes that
 # modern libc++ drops at C++23). Build only those at C++17; they link the SAME
 # libc++ as our C++23 code, so each TU is single-standard over one libc++.
+# Mixing -std is ABI-safe precisely because of that ONE shared libc++ build: the
+# libc++ ABI is fixed by the build + _LIBCPP_ABI_VERSION, not by -std (the C++17
+# vs C++23 binary-compatibility hazard only bites across different libc++ builds).
+# See CARVE_DESIGN.md 4.2 "Mixed C++ standards" (incl. the macOS-uses-the-SDK-libc++
+# caveat + the from-source-runtimes enhancement, deferred).
 # Scoped to the llvm/ and clang/ packages only -- NOT libc++/libc++abi/libunwind/
 # compiler-rt: on Linux the toolchain builds those runtimes from source and they
 # need their own, newer standard (e.g. libcxx/src uses std::ranges, which is

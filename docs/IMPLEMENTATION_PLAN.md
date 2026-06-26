@@ -161,6 +161,15 @@ binary (no LLVM link) would make the per-action tool tiny and the exec build che
     external-repo path form, so author + validate the fragment against a real
     consumer workspace (or the `.bcr/presubmit.yml` build of `//carve:carve`) when
     cutting the release.
+- ⬜ **Fully-hermetic runtimes (deferred enhancement, not a blocker).** The mixed
+  C++17/C++23 build is ABI-safe today because each build links one consistent
+  libc++ (CARVE_DESIGN §4.2 "Mixed C++ standards"). But on macOS that libc++ is the
+  host Command Line Tools SDK's, not version-matched to the from-source LLVM. Building
+  libc++/libc++abi/libunwind from the `@llvm-project` source on every platform would
+  make the build fully hermetic + the ABI safety airtight. hermetic-llvm's `osx`
+  extension has no from-source-libc++ knob, so this means forking/extending the
+  toolchain module + heavy rebuilds — a significant effort, deferred until there is
+  a concrete need.
 
 Acceptance: a bzlmod consumer can `bazel_dep(name = "helly25_carve")` and get a working CDB; tagged release.
 
