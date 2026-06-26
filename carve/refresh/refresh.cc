@@ -415,11 +415,11 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
   // resolve is left UNstamped (written_at stays unset, which reads as 0 = stale)
   // so the next refresh re-scans it rather than caching an incomplete header set
   // (CARVE_DESIGN.md sections 4.2, 4.4).
-  if (options.clock) {
-    const std::int64_t now = options.clock();
+  if (options.now) {
+    const std::int64_t stamp = options.now();
     for (ActionRecord& record : *merged.mutable_records()) {
       if (record.project_id() == options.project_id && !unresolved.contains(record.action_key())) {
-        record.set_written_at(now);
+        record.set_written_at(stamp);
       }
     }
   }
