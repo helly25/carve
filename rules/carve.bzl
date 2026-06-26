@@ -141,10 +141,11 @@ per-action build-cache incrementality (CARVE_DESIGN.md section 4.7).""",
             doc = "Project id stamped on the aggregated database.",
         ),
         "carve": attr.label(
-            default = Label("//carve:carve"),
+            default = Label("//carve:carve_aggregate"),
             executable = True,
             cfg = "target",
-            doc = "The carve binary to run for aggregation.",
+            doc = "Binary run to merge the shards. Defaults to the lean, LLVM-free " +
+                  "//carve:carve_aggregate; override with //carve:carve for the full binary.",
         ),
         "_launcher": attr.label(default = Label("//rules:carve_aggregate.tpl.sh"), allow_single_file = True),
         "_bash_runfiles": attr.label(default = Label("@bazel_tools//tools/bash/runfiles")),

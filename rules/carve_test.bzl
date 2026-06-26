@@ -41,8 +41,8 @@ def _aspect_refresh_wiring_test_impl(ctx):
     runfiles = [f.short_path for f in target[DefaultInfo].default_runfiles.files.to_list()]
     asserts.true(
         env,
-        [p for p in runfiles if p.endswith("carve/carve")] != [],
-        "the carve binary should be in the launcher's runfiles, got: {}".format(runfiles),
+        [p for p in runfiles if p.endswith("carve/carve_aggregate")] != [],
+        "the lean carve_aggregate binary should be in the launcher's runfiles, got: {}".format(runfiles),
     )
     asserts.true(
         env,
@@ -68,7 +68,7 @@ def carve_rules_test_suite(name):
 
     # Layer C: the aspect runs at analysis time over the dep, so the wiring test
     # also proves the aspect declared a shard. The build_test then actually builds
-    # the shards, exercising the sandboxed `carve shard` action (scan-deps) in CI.
+    # the shards, exercising the sandboxed `carve_shard` action in CI.
     carve_aspect_refresh(
         name = "aspect_refresh_under_test",
         targets = ["//rules/testdata:lib"],
@@ -76,23 +76,21 @@ def carve_rules_test_suite(name):
     )
     _aspect_refresh_wiring_test(name = "aspect_refresh_wiring_test", target_under_test = ":aspect_refresh_under_test")
 
-    # Actually building a shard runs the aspect's `carve shard` action, which needs
-    # the carve binary in the EXEC configuration. Because carve links the
-    # from-source LLVM/clang (via scan_deps), that is a full exec-config LLVM build
-    # (~tens of minutes) — far too costly for every CI run. So this build_test is
-    # `manual` and excluded from the default suite: run it on demand with
-    # `bazel test //rules:aspect_shards_build_test`. CI relies on the analysis test
-    # above (which validates the wiring without building the exec-config tool); the
-    # shard data path itself is covered by //carve/shard:shard_test.
+    # Actually building the shards runs the aspect's `carve_shard` action (exec
+    # config) and brings in the launcher's `carve_aggregate` (target config). Both
+    # are lean, LLVM-free binaries, so this build_test is cheap and runs in CI: it
+    # exercises the whole Layer C build path -- shard production plus the aggregate
+    # wiring -- end to end. (It was `manual` while the exec tool was the full
+    # LLVM-linked `carve`, which cost ~tens of minutes; carve_shard removed that.)
     build_test(
         name = "aspect_shards_build_test",
         targets = [":aspect_refresh_under_test"],
-        tags = ["manual"],
     )
     native.test_suite(
         name = name,
         tests = [
             ":refresh_wiring_test",
             ":aspect_refresh_wiring_test",
+            ":aspect_shards_build_test",
         ],
     )
