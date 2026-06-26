@@ -55,8 +55,8 @@ HeaderScanner FailingScanner() {
   };
 }
 
-Clock FixedClock(std::int64_t now) {
-  return [now] { return now; };
+NowFn FixedNow(std::int64_t value) {
+  return [value] { return value; };
 }
 
 TEST(BuildShardTest, DeBazelsScansAndStamps) {
@@ -68,7 +68,7 @@ TEST(BuildShardTest, DeBazelsScansAndStamps) {
   options.primary_output = "bazel-out/a.o";
   options.directory = "/exec";
   options.scanner = FixedScanner({"a.cc", "h/one.h"});
-  options.clock = FixedClock(12'345);
+  options.now = FixedNow(12'345);
 
   EXPECT_THAT(BuildShard(options), EqualsProto(R"pb(records {
                                                       action_key: "k"
@@ -90,7 +90,7 @@ TEST(BuildShardTest, FailedScanRecordsNoHeadersAndLeavesUnstamped) {
   options.command = {"clang", "-c", "a.cc"};
   options.source = "a.cc";
   options.scanner = FailingScanner();
-  options.clock = FixedClock(999);  // present, but the incomplete scan must NOT stamp
+  options.now = FixedNow(999);  // present, but the incomplete scan must NOT stamp
 
   EXPECT_THAT(
       BuildShard(options),
@@ -103,7 +103,7 @@ TEST(BuildShardTest, NoScannerStampsWithoutHeaders) {
   options.command = {"clang", "-c", "a.cc"};
   options.source = "a.cc";
   options.scanner = nullptr;  // header scanning disabled
-  options.clock = FixedClock(7);
+  options.now = FixedNow(7);
 
   EXPECT_THAT(BuildShard(options), EqualsProto(R"pb(records {
                                                       action_key: "k"
@@ -121,7 +121,7 @@ TEST(BuildShardTest, ResolvesXcodePlaceholders) {
   options.command = {"clang", "-isysroot__BAZEL_XCODE_SDKROOT__", "-c", "a.cc"};
   options.source = "a.cc";
   options.xcode_sdkroot = "/SDKs/MacOSX.sdk";
-  // No scanner, no clock: isolate the placeholder substitution.
+  // No scanner, no `now`: isolate the placeholder substitution.
 
   EXPECT_THAT(BuildShard(options), EqualsProto(R"pb(records {
                                                       action_key: "k"
@@ -147,7 +147,7 @@ TEST(RunShardTest, ReadsCommandFileAndWritesShard) {
   options.source = "a.cc";
   options.project_id = "p";
   options.scanner = FixedScanner({"a.cc"});
-  options.clock = FixedClock(42);
+  options.now = FixedNow(42);
   options.out_path = out.string();
 
   ASSERT_THAT(RunShard(options), IsOk());

@@ -36,7 +36,7 @@ using HeaderScanner =
     std::function<absl::StatusOr<std::vector<std::string>>(absl::Span<const std::string>, std::string_view)>;
 
 // Returns the current unix time in seconds; injected for deterministic tests.
-using Clock = std::function<std::int64_t()>;
+using NowFn = std::function<std::int64_t()>;
 
 // Inputs for building one shard (the record for a single compile action).
 struct Options {
@@ -49,7 +49,7 @@ struct Options {
   std::string xcode_developer_dir;   // resolves `__BAZEL_XCODE_DEVELOPER_DIR__`; optional
   std::string xcode_sdkroot;         // resolves `__BAZEL_XCODE_SDKROOT__`; optional
   HeaderScanner scanner;             // optional; null skips header scanning
-  Clock clock;                       // optional; null leaves `written_at` unset
+  NowFn now;                         // optional; null leaves `written_at` unset
 };
 
 // Builds a single-record shard from one compile action: de-Bazel the command,
@@ -73,7 +73,7 @@ struct FileOptions {
   std::string xcode_developer_dir;
   std::string xcode_sdkroot;
   HeaderScanner scanner;
-  Clock clock;
+  NowFn now;
   std::string out_path;
 };
 

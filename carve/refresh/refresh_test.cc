@@ -325,11 +325,11 @@ TEST(RunRefreshTest, StampsWrittenAtUsingTheInjectedClock) {
     compile->add_arguments(std::string(arg));
   }
   FileOptions options = TempRefresh("carve_written_at", container);
-  options.clock = [] { return std::int64_t{1'700'000'000}; };
+  options.now = [] { return std::int64_t{1'700'000'000}; };
 
   ASSERT_THAT(RunRefresh(options), IsOk());
 
-  // The freshly built record carries the injected clock's timestamp.
+  // The freshly built record carries the injected `now`'s timestamp.
   EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
                                                                                    action_key: "k1"
                                                                                    sources: "src/a.cc"
@@ -347,7 +347,7 @@ TEST(RunRefreshTest, ReusedRecordIsRestampedKeepingCachedHeaders) {
     compile->add_arguments(std::string(arg));
   }
   FileOptions options = TempRefresh("carve_written_at_reuse", container);
-  options.clock = [] { return std::int64_t{222}; };
+  options.now = [] { return std::int64_t{222}; };
 
   // Seed a matching record stamped at an older time, with a cached header.
   const ActionRecords seed = ParseTextProtoOrDie(
@@ -519,7 +519,7 @@ TEST(RunRefreshTest, FailedScanIsLeftUnstampedAndCounted) {
     compile->add_arguments(std::string(arg));
   }
   FileOptions options = TempRefresh("carve_unresolved", container);
-  options.clock = [] { return std::int64_t{555}; };
+  options.now = [] { return std::int64_t{555}; };
   // Mimic scan-deps hitting an unbuilt generated header: the scan fails.
   options.scanner = [](absl::Span<const std::string> /*argv*/,
                        std::string_view /*directory*/) -> absl::StatusOr<std::vector<std::string>> {
@@ -527,7 +527,7 @@ TEST(RunRefreshTest, FailedScanIsLeftUnstampedAndCounted) {
   };
 
   // The failure is counted, and the record is stored WITHOUT headers and WITHOUT
-  // a timestamp -- even though the clock is set -- so the next refresh re-scans
+  // a timestamp -- even though `now` is set -- so the next refresh re-scans
   // it instead of caching the incomplete result (CARVE_DESIGN.md section 4.2).
   EXPECT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::unresolved, Eq(1))));
   EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
@@ -546,7 +546,7 @@ TEST(RunRefreshTest, FailedScanIsRetriedOnTheNextRefresh) {
     compile->add_arguments(std::string(arg));
   }
   FileOptions options = TempRefresh("carve_unresolved_retry", container);
-  options.clock = [] { return std::int64_t{555}; };
+  options.now = [] { return std::int64_t{555}; };
   bool scan_fails = true;
   options.scanner = [&scan_fails](
                         absl::Span<const std::string> /*argv*/,

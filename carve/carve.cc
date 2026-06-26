@@ -163,7 +163,7 @@ absl::Status RunRefreshFromFlags() {
       .sidecar_path = absl::GetFlag(FLAGS_sidecar),
       .project_id = absl::GetFlag(FLAGS_project_id),
       .scanner = carve::scan_deps::ScanDependencies,
-      .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
+      .now = [] { return absl::ToUnixSeconds(absl::Now()); },
       .jobs = jobs,
       .xcode_resolver = MakeXcodeResolver(),
   };
@@ -250,7 +250,7 @@ absl::Status RunShardFromFlags() {
       .xcode_sdkroot = xcode_sdkroot,
       .scanner = absl::GetFlag(FLAGS_scan) ? carve::shard::HeaderScanner(carve::scan_deps::ScanDependencies)
                                            : carve::shard::HeaderScanner(),
-      .clock = [] { return absl::ToUnixSeconds(absl::Now()); },
+      .now = [] { return absl::ToUnixSeconds(absl::Now()); },
       .out_path = out,
   };
   MBO_RETURN_IF_ERROR(carve::shard::RunShard(options));

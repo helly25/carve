@@ -43,9 +43,9 @@ using HeaderScanner = std::function<
     absl::StatusOr<std::vector<std::string>>(absl::Span<const std::string> argv, std::string_view directory)>;
 
 // Returns the current time in unix seconds. Injected so `refresh` stamps
-// `written_at` deterministically in tests; the production clock reads the wall
-// clock. An empty clock leaves `written_at` unset.
-using Clock = std::function<std::int64_t()>;
+// `written_at` deterministically in tests; in production it reads the wall
+// clock. An empty `now` leaves `written_at` unset.
+using NowFn = std::function<std::int64_t()>;
 
 // Resolved Apple toolchain paths used to substitute Bazel `wrapped_clang`
 // placeholders (`__BAZEL_XCODE_DEVELOPER_DIR__` / `__BAZEL_XCODE_SDKROOT__`) that
@@ -86,7 +86,7 @@ struct FileOptions {
   std::string sidecar_path;          // Action-records sidecar; empty disables it.
   std::string project_id;            // See Options::project_id.
   HeaderScanner scanner;             // Scans added/changed actions; empty = no header scanning.
-  Clock clock;                       // Stamps written_at on this project's records each
+  NowFn now;                         // Stamps written_at on this project's records each
                                      // refresh (for prune/GC); empty leaves it unset.
   int jobs = 0;                      // Parallel scan-deps worker threads; <=0 means serial.
   XcodeResolver xcode_resolver;      // Resolves wrapped_clang placeholders; empty = none.

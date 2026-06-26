@@ -68,8 +68,8 @@ ActionRecords BuildShard(const Options& options) {
     }
   }
 
-  if (options.clock && scan_complete) {
-    record.set_written_at(options.clock());
+  if (options.now && scan_complete) {
+    record.set_written_at(options.now());
   }
   return records;
 }
@@ -94,7 +94,7 @@ absl::Status RunShard(const FileOptions& options) {
           .xcode_developer_dir = options.xcode_developer_dir,
           .xcode_sdkroot = options.xcode_sdkroot,
           .scanner = options.scanner,
-          .clock = options.clock,
+          .now = options.now,
       });
   return sidecar::Save(options.out_path, shard);
 }
