@@ -61,7 +61,9 @@ ActionRecords BuildShard(const Options& options) {
     const absl::StatusOr<std::vector<std::string>> headers = options.scanner(scan_argv, options.directory);
     if (headers.ok()) {
       for (const std::string& header : *headers) {
-        record.add_headers(header);
+        // Store execroot-relative (like refresh) so shards are host-independent
+        // and remotely cache-shareable (CARVE_DESIGN.md section 9).
+        record.add_headers(command::RelativizeToExecroot(header, options.directory));
       }
     } else {
       scan_complete = false;

@@ -68,8 +68,22 @@ Done (golden-tested in `carve/command`, wired through `refresh`):
 - ✅ Apple `wrapped_clang` + `__BAZEL_XCODE_*`: `command::ResolveXcodePlaceholders` substitutes the developer-dir/SDK paths; `refresh` invokes an injected `XcodeResolver` (the binary resolves via `xcode-select`/`xcrun` on macOS) only when a command carries a placeholder.
 - ✅ `parse_headers` actions are filtered implicitly: their "source" is a header, so `FindSource` finds no TU and the action is skipped.
 
+- ✅ **Execroot/absolute-path canonicalization of the persisted sidecar (the
+  cross-host determinism property, §9).** scan-deps resolves generated and external
+  headers to absolute, per-host cache paths (`.../execroot/_main/...`);
+  `command::RelativizeToExecroot` rewrites them execroot-relative at storage
+  (`refresh::ScanHeaders`, `shard::BuildShard`), and `CachedScanIsStale` resolves
+  them back against the execroot to stat. The sidecar and header index now hold
+  **zero** absolute paths (verified end-to-end on this repo: ~15k → 0) — so they are
+  byte-identical across machines and remote-cache-shareable. The CDB `file` is also
+  emitted execroot-relative (clangd resolves it against `directory`=execroot, the
+  same path as before). A property test asserts the sidecar has no absolute paths.
+
 Remaining (deferred — niche toolchains or a design-level property; best validated against M3's corpus):
-- ⬜ Execroot / absolute-path canonicalization to *workspace-relative* (the cross-host determinism property, §9). carve currently emits paths absolute against the execroot, which clangd consumes correctly; workspace-relative rewriting is a separate, larger change.
+- ⬜ Full *CDB* workspace-relative rewriting (`directory`=workspace root + the
+  `//external` symlink choreography, §10) so the emitted database is itself
+  relocatable. The CDB stays execroot-rooted until then (clangd consumes it
+  correctly); this is the separate, larger change. Windows junctions are out of scope.
 - ⬜ NVCC→clang flag translation (CUDA); Emscripten driver indirection; Windows command-line-length param-file specifics (carve already expands `@param` files via aquery `--include_param_files`).
 
 Acceptance: golden test per quirk; platform-specific ones skipped where the toolchain is absent.
@@ -186,7 +200,7 @@ Acceptance: a bzlmod consumer can `bazel_dep(name = "helly25_carve")` and get a 
   per-action shard. ✅ `cc_carve_aspect` + `carve_aspect_refresh` (Layer C): the
   aspect schedules `shard` per compile action and aggregates the shards.
 - Parallel scan-deps (`--jobs`) — fold into M1.
-- Property tests: idempotency (have a dogfood check; codify), cross-host determinism (needs M2 canonicalization).
+- Property tests: ✅ cross-host determinism — `refresh_test` asserts the sidecar holds no absolute paths after a refresh whose scanner returns execroot-absolute headers (M2 canonicalization). Idempotency (refresh twice → identical sidecar) still to be codified beyond the dogfood check.
 - Keep [docs/test-plan.md](test-plan.md) at zero open debts.
 - Latency reality: Layers A/B re-run `bazel aquery` every refresh (design §3.1); sub-second incrementality on huge repos is a Layer C (M5) property — don't over-promise before then.
 

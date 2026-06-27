@@ -125,8 +125,9 @@ TEST(RunAggregateTest, MergesSidecarsIntoOneDatabase) {
   EXPECT_THAT(RunAggregate(shards, out, /*directory=*/"/exec/root"), IsOkAndHolds(Eq(2)));
 
   const std::string json = ReadFile(out);
-  EXPECT_THAT(json, HasSubstr("/exec/root/carve/a.cc"));
-  EXPECT_THAT(json, HasSubstr("/exec/root/carve/b.cc"));
+  // `file` is execroot-relative; `directory` is the execroot clangd resolves it against.
+  EXPECT_THAT(json, HasSubstr("\"file\": \"carve/a.cc\""));
+  EXPECT_THAT(json, HasSubstr("\"file\": \"carve/b.cc\""));
   EXPECT_THAT(json, HasSubstr("\"directory\": \"/exec/root\""));
 }
 
