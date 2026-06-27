@@ -134,7 +134,9 @@ bazel test //... --config=asan     # sanitizer presets
 
 If you are an AI agent making changes:
 
-1. Read [CARVE_DESIGN.md](CARVE_DESIGN.md) and this file before writing code.
+1. Read [CARVE_DESIGN.md](CARVE_DESIGN.md) and this file before writing code — and
+   [RULES.md](RULES.md) plus [STYLE_CPP.md](STYLE_CPP.md) before writing or changing
+   C++ (structure + the detailed style: matchers, `// NL`, idioms).
 2. State the change you intend to make in plain language before editing.
 3. Run `bazel build //...` and `bazel test //...` locally before declaring a
    change complete. If tests cannot be run in your environment, say so.

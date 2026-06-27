@@ -299,3 +299,7 @@ follows [SemVer](https://semver.org/).
   LLVM-linking targets (`//carve:carve`, scan_deps, e2e) are tagged `no_san` and
   excluded. macOS sanitizers are deferred (the toolchain wires the runtimes +
   interface headers for Linux only).
+- Enforce the docs chain (CLAUDE.md -> AGENTS.md -> RULES.md/STYLE_CPP.md): the
+  AI-agent checklist now mandates reading RULES.md and STYLE_CPP.md before writing
+  C++, so the detailed style (status matchers, `// NL`, idioms) is in the compulsory
+  pre-coding read rather than only cross-referenced from the document map.
