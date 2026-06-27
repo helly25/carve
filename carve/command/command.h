@@ -56,6 +56,19 @@ namespace carve::command {
     std::string_view developer_dir,
     std::string_view sdkroot);
 
+// Rewrites an absolute `path` that lies under `execroot` to an execroot-relative
+// path (".../execroot/_main/bazel-out/.../x.inc" -> "bazel-out/.../x.inc"). A
+// path that is already relative, or one not under `execroot` (e.g. a system
+// header), is returned unchanged; an empty `execroot` is a no-op. Purely lexical:
+// no filesystem access.
+//
+// scan-deps resolves generated and external headers to absolute, per-host cache
+// paths (".../execroot/_main/..."). Storing them execroot-relative -- as the
+// sources and the argv already are -- keeps the sidecar byte-identical across
+// machines, the cross-host determinism property (CARVE_DESIGN.md section 9).
+// `execroot` is `bazel info execution_root`; the inverse is `directory / path`.
+[[nodiscard]] std::string RelativizeToExecroot(std::string_view path, std::string_view execroot);
+
 }  // namespace carve::command
 
 #endif  // CARVE_COMMAND_COMMAND_H_

@@ -115,5 +115,33 @@ TEST(ResolveXcodePlaceholdersTest, EmptyReplacementsLeavePlaceholdersUntouched) 
   EXPECT_THAT(ResolveXcodePlaceholders(argv, "", ""), ElementsAre("-isysroot__BAZEL_XCODE_SDKROOT__", "-c", "a.cc"));
 }
 
+TEST(RelativizeToExecrootTest, StripsTheExecrootPrefix) {
+  EXPECT_EQ(
+      RelativizeToExecroot(
+          "/cache/execroot/_main/bazel-out/k8-fastbuild/bin/external/x/h.inc", "/cache/execroot/_main"),
+      "bazel-out/k8-fastbuild/bin/external/x/h.inc");
+}
+
+TEST(RelativizeToExecrootTest, LeavesAnAlreadyRelativePathUnchanged) {
+  EXPECT_EQ(
+      RelativizeToExecroot("bazel-out/k8-fastbuild/bin/x.h", "/cache/execroot/_main"),
+      "bazel-out/k8-fastbuild/bin/x.h");
+}
+
+TEST(RelativizeToExecrootTest, LeavesAPathOutsideTheExecrootAbsolute) {
+  // A genuine system header is not under the execroot and cannot be made relative.
+  EXPECT_EQ(RelativizeToExecroot("/usr/include/stdio.h", "/cache/execroot/_main"), "/usr/include/stdio.h");
+}
+
+TEST(RelativizeToExecrootTest, DoesNotStripAMereStringPrefix) {
+  // "/a/b_main" shares a string prefix with "/a/b" but is not a path child of it;
+  // relativization is path-component-aware, so the path stays absolute.
+  EXPECT_EQ(RelativizeToExecroot("/a/b_main/x.h", "/a/b"), "/a/b_main/x.h");
+}
+
+TEST(RelativizeToExecrootTest, EmptyExecrootIsANoOp) {
+  EXPECT_EQ(RelativizeToExecroot("/cache/execroot/_main/x.h", ""), "/cache/execroot/_main/x.h");
+}
+
 }  // namespace
 }  // namespace carve::command

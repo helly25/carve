@@ -161,7 +161,9 @@ bool ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderS
     return false;
   }
   for (const std::string& header : *headers) {
-    record.add_headers(header);
+    // scan-deps resolves headers to absolute, per-host cache paths; store them
+    // execroot-relative (like the sources) so the sidecar is host-independent.
+    record.add_headers(command::RelativizeToExecroot(header, directory));
   }
   return true;
 }
@@ -257,8 +259,8 @@ bool ModifiedAfter(const std::filesystem::path& path, std::int64_t since) {
 // True if `stored`'s cached scan can no longer be trusted: any source or header
 // it recorded has been modified since `written_at`, so its include set may have
 // changed and the action must be re-scanned. An unstamped record (written_at 0)
-// has no baseline and is always treated as stale. Sources are resolved against
-// `directory` (the execroot); scan-deps headers are already absolute.
+// has no baseline and is always treated as stale. Sources and scan-deps headers
+// are both stored execroot-relative, resolved against `directory` to stat them.
 //
 // `written_at` has one-second granularity, so an edit made in the same second as
 // the previous refresh's stamp is not detected until the next edit or refresh —
@@ -268,12 +270,13 @@ bool CachedScanIsStale(const ActionRecord& stored, std::string_view directory) {
     return true;  // No baseline timestamp: re-scan to establish one.
   }
   const std::int64_t since = stored.written_at();
-  // Sources are execroot-relative; scan-deps headers are already absolute.
+  // Sources and scan-deps headers are both execroot-relative; resolve each
+  // against `directory` (the execroot) to stat the file on disk.
   return absl::c_any_of(
              stored.sources(),
              [&](std::string_view source) { return ModifiedAfter(AbsoluteFile(directory, source), since); })
          || absl::c_any_of(stored.headers(), [&](std::string_view header) {
-              return ModifiedAfter(std::filesystem::path(header), since);
+              return ModifiedAfter(AbsoluteFile(directory, header), since);
             });
 }
 
@@ -321,7 +324,11 @@ std::vector<cdb::CompileCommand> EntriesFromRecords(const ActionRecords& records
     entries.push_back(
         cdb::CompileCommand{
             .directory = std::string(directory),
-            .file = AbsoluteFile(directory, record.sources(0)),
+            // The source stays execroot-relative; `directory` (the execroot) is
+            // what clangd resolves it against. Emitting it relative keeps the
+            // database host-independent apart from `directory` (CARVE_DESIGN.md
+            // section 9) and matches the (already relative) argv.
+            .file = std::string(record.sources(0)),
             .arguments = std::move(arguments),
             .output = std::string(record.primary_output()),
         });

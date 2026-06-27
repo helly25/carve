@@ -102,7 +102,7 @@ TEST(EndToEndTest, RefreshFromProtoWritesCompileCommands) {
       IsOkAndHolds(Field(&process::CommandResult::exit_code, Eq(0))));
 
   const std::string cdb = ReadFile(out);
-  EXPECT_THAT(cdb, HasSubstr("\"file\": \"/execroot/ws/src/a.cc\""));
+  EXPECT_THAT(cdb, HasSubstr("\"file\": \"src/a.cc\""));  // execroot-relative; resolved against --directory
   EXPECT_THAT(cdb, HasSubstr("\"directory\": \"/execroot/ws\""));
 }
 
@@ -123,7 +123,7 @@ TEST(EndToEndTest, RefreshWithTargetsRunsAqueryAndDefaultsDirectoryToExecRoot) {
 
   const std::string cdb = ReadFile(out);
   EXPECT_THAT(cdb, HasSubstr("\"directory\": \"/fake/execroot\""));
-  EXPECT_THAT(cdb, HasSubstr("\"file\": \"/fake/execroot/src/a.cc\""));
+  EXPECT_THAT(cdb, HasSubstr("\"file\": \"src/a.cc\""));  // execroot-relative; directory defaulted to the execroot
 }
 
 TEST(EndToEndTest, MissingSubcommandExitsTwo) {

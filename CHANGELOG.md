@@ -299,6 +299,17 @@ follows [SemVer](https://semver.org/).
   LLVM-linking targets (`//carve:carve`, scan_deps, e2e) are tagged `no_san` and
   excluded. macOS sanitizers are deferred (the toolchain wires the runtimes +
   interface headers for Linux only).
+- Cross-host determinism (CARVE_DESIGN.md §9): scan-deps resolves generated and
+  external headers to absolute, per-host Bazel cache paths
+  (`.../execroot/_main/...`). `command::RelativizeToExecroot` now stores them
+  execroot-relative — as the sources and argv already are — so the persisted
+  sidecar and header index hold **zero** absolute paths (verified end-to-end on
+  this repo: ~15k → 0) and are byte-identical across machines and
+  remote-cache-shareable. The CDB `file` is likewise emitted execroot-relative
+  (clangd resolves it against `directory`=execroot, the same path as before). A
+  `refresh_test` property test asserts the sidecar carries no absolute paths.
+  (IMPLEMENTATION_PLAN.md M2; the full CDB workspace-relative rewrite —
+  `directory`=workspace + `//external` symlink — remains a deferred follow-up.)
 - Enforce the docs chain (CLAUDE.md -> AGENTS.md -> RULES.md/STYLE_CPP.md): the
   AI-agent checklist now mandates reading RULES.md and STYLE_CPP.md before writing
   C++, so the detailed style (status matchers, `// NL`, idioms) is in the compulsory
