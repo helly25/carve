@@ -140,6 +140,13 @@ per-action build-cache incrementality (CARVE_DESIGN.md section 4.7).""",
             default = "",
             doc = "Project id stamped on the aggregated database.",
         ),
+        "exclude_external_sources": attr.bool(
+            default = True,
+            doc = "Shard only first-party (main-repo) compile actions, skipping targets " +
+                  "from external repositories: clangd resolves their headers via " +
+                  "first-party entries' -I flags, so they need no entries of their own. " +
+                  "Set False to shard the full transitive graph.",
+        ),
         "carve": attr.label(
             default = Label("//carve:carve_aggregate"),
             executable = True,

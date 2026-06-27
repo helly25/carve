@@ -126,10 +126,14 @@ action cache on `command_file`). **M5 complete.**
   whole Layer C path is now LLVM-free (≈seconds, not the tens-of-minutes exec-config
   LLVM build the full `carve` required), so the `build_test` rejoined CI.
 
-Deferred Layer C refinements (follow-ups, not blockers): scoping the aspect to
-first-party targets (the design's `exclude_external_sources`, so it does not shard
-the whole external graph); and recording headers in shards for a shard-built
-`HeaderIndex` (the design's `ASPECT_M` source kind).
+- ✅ **First-party scoping (`exclude_external_sources`):** the aspect shards only
+  main-repo compile actions by default, skipping external-repo targets (clangd
+  resolves their headers via first-party entries' `-I` flags, so they need no
+  entries). It is an aspect parameter on `carve_aspect_refresh`, default `True`;
+  set `False` to shard the whole transitive graph.
+
+Deferred Layer C refinements (follow-ups, not blockers): recording headers in
+shards for a shard-built `HeaderIndex` (the design's `ASPECT_M` source kind).
 
 ### M6 — 0.1 release + distribution
 `.bcr/` metadata, release automation, prebuilt binaries for common platforms (design §7); decide Windows in-or-out.
