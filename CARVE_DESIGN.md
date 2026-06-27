@@ -349,7 +349,7 @@ All flags `absl::Flags`. Help auto-generated. No hand-rolled arg parsing.
 
 Two delivery modes:
 
-1. **As a bzlmod dependency.** Consumers add `bazel_dep(name = "carve")`. The `cc_carve` macro is loaded from `@carve//rules:cc_carve.bzl`. First use builds `carve` from source through their toolchain. Subsequent uses hit Bazel's cache.
+1. **As a bzlmod dependency.** Consumers add `bazel_dep(name = "helly25_carve")` and load `carve_refresh` / `carve_aspect_refresh` from `@helly25_carve//rules:carve.bzl`. First use builds `carve` from source; subsequent uses hit Bazel's cache. Because a module's `.bazelrc` does not propagate to its dependents, the consuming build must reproduce carve's compile settings — `-std=c++23` (and, on macOS, a `std::filesystem` deployment floor of at least 10.15), plus — when building the LLVM-linked `//carve:carve` — the C++17 `per_file_copt` scoping for the `@llvm-project` libraries `scan_deps` links and `-fno-rtti` for `scan_deps`. carve will provide these as an importable consumer `.bazelrc` fragment (IMPLEMENTATION_PLAN.md M6).
 2. **As prebuilt binaries.** Released for common platforms (darwin-arm64, darwin-x86_64, linux-x86_64, linux-arm64, windows-x86_64) via GitHub Releases. `cc_carve` rule downloads the appropriate binary for the host. Avoids the from-source build entirely for users on supported platforms.
 
 Mode 2 matters for the editor-tooling use case: contributors want compile_commands.json working immediately after clone, not after a 5-minute LLVM toolchain build.
