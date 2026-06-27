@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) The helly25/carve authors (github.com/helly25/carve)
+# SPDX-License-Identifier: Apache-2.0
+
+# Patches applied to BCR modules via `single_version_override` in MODULE.bazel.
+exports_files(glob(["*.patch"]))

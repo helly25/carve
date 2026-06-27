@@ -20,6 +20,8 @@ package(default_visibility = ["//visibility:private"])
 cc_binary(
     name = "carve",
     srcs = ["carve.cc"],
+    # Links the from-source LLVM via scan_deps; excluded from sanitizer builds.
+    tags = ["no_san"],
     visibility = ["//visibility:public"],
     deps = [
         "//carve/aggregate:aggregate_cc",

@@ -51,6 +51,8 @@ cc_test(
     name = "scan_deps_test",
     size = "small",
     srcs = ["scan_deps_test.cc"],
+    # Links the from-source LLVM; excluded from sanitizer builds.
+    tags = ["no_san"],
     target_compatible_with = _LLVM_PLATFORM,
     deps = [
         ":scan_deps_cc",
