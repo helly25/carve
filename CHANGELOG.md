@@ -105,7 +105,10 @@ follows [SemVer](https://semver.org/).
   target is added to `toolchains_llvm`'s `BUILD.llvm_repo.tpl` (pending upstream)
   and consumed via a `local_path_override` to the sibling checkout until a
   release ships it. Bump LLVM 22.1.7 -> 22.1.8 and helly25_mbo 0.10.0 -> 0.11.1.
-- Pin the macOS deployment target to 11.0 so libc++ exposes `std::filesystem`.
+- Pin the macOS deployment target to 14.0 (a current floor for this developer
+  tool), set on every compile via `--copt` (so the C deps zlib/utf8_range are
+  covered, not just C++) and on the link, so all objects agree on the minimum OS
+  and `ld64.lld` emits no "object ... newer than target minimum" warnings.
 - **Switch the LLVM toolchain and clang libraries to hermetic-llvm** (the `llvm`
   BCR module, LLVM 22.1.7): drop `toolchains_llvm`, the `clang_cpp` fork target,
   and the `local_path_override`. `carve/scan_deps` now links

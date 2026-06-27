@@ -13,10 +13,15 @@ common:macos --features=-supports_dynamic_linker
 common:macos --linkopt=-framework --linkopt=CoreFoundation --host_linkopt=-framework --host_linkopt=CoreFoundation
 common:macos --linkopt=-Wl,-undefined,dynamic_lookup --host_linkopt=-Wl,-undefined,dynamic_lookup
 
-# carve uses std::filesystem (introduced in macOS 10.15); pin a modern minimum
-# deployment target so libc++ does not mark those APIs unavailable.
-common:macos --cxxopt=-mmacosx-version-min=11.0 --host_cxxopt=-mmacosx-version-min=11.0
-common:macos --linkopt=-mmacosx-version-min=11.0 --host_linkopt=-mmacosx-version-min=11.0
+# carve is a developer tool; its users track recent macOS, so pin the deployment
+# target to a current floor (macOS 14) rather than carrying backward compatibility
+# to long-superseded releases. Set it on every compile *and* the link so all
+# objects agree on the minimum OS: --copt reaches both C and C++, so the C deps
+# (zlib, protobuf's utf8_range) are covered too -- otherwise they default to the
+# SDK's own deployment target and ld64.lld warns "object ... has version X, which
+# is newer than target minimum of Y" for each one on every link.
+common:macos --copt=-mmacosx-version-min=14.0 --host_copt=-mmacosx-version-min=14.0
+common:macos --linkopt=-mmacosx-version-min=14.0 --host_linkopt=-mmacosx-version-min=14.0
 
 try-import %workspace%/.bazelrc.user
 
