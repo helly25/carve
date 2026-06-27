@@ -12,3 +12,13 @@ cc_library(
     srcs = ["lib.cc"],
     hdrs = ["lib.h"],
 )
+
+# Depends on a minimal external cc_library (one .cc) so the aspect tests can prove
+# external compile actions are NOT sharded by default (exclude_external_sources):
+# only this target's own `lib.cc` should yield a shard, never abseil's int128.cc.
+cc_library(
+    name = "lib_with_external_dep",
+    srcs = ["lib.cc"],
+    hdrs = ["lib.h"],
+    deps = ["@abseil-cpp//absl/numeric:int128"],
+)

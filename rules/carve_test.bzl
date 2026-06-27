@@ -53,6 +53,49 @@ def _aspect_refresh_wiring_test_impl(ctx):
 
 _aspect_refresh_wiring_test = analysistest.make(_aspect_refresh_wiring_test_impl)
 
+def _aspect_excludes_external_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    shards = [
+        f.short_path
+        for f in target[DefaultInfo].default_runfiles.files.to_list()
+        if f.short_path.endswith(".shard.binpb")
+    ]
+    asserts.true(
+        env,
+        [s for s in shards if "testdata" in s] != [],
+        "the first-party testdata source should be sharded, got: {}".format(shards),
+    )
+    asserts.equals(
+        env,
+        [],
+        [s for s in shards if "int128" in s or "/absl/" in s],
+        "external compile actions must not be sharded (exclude_external_sources), got: {}".format(shards),
+    )
+    return analysistest.end(env)
+
+_aspect_excludes_external_test = analysistest.make(_aspect_excludes_external_test_impl)
+
+def _aspect_includes_external_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    shards = [
+        f.short_path
+        for f in target[DefaultInfo].default_runfiles.files.to_list()
+        if f.short_path.endswith(".shard.binpb")
+    ]
+
+    # Proves the exclusion is real (not vacuous): with the toggle off, the same
+    # external int128.cc is sharded.
+    asserts.true(
+        env,
+        [s for s in shards if "int128" in s] != [],
+        "with exclude_external_sources = False the external int128.cc should be sharded, got: {}".format(shards),
+    )
+    return analysistest.end(env)
+
+_aspect_includes_external_test = analysistest.make(_aspect_includes_external_test_impl)
+
 def carve_rules_test_suite(name):
     """Defines the carve_refresh / carve_aspect_refresh analysis tests under `name`.
 
@@ -86,11 +129,36 @@ def carve_rules_test_suite(name):
         name = "aspect_shards_build_test",
         targets = [":aspect_refresh_under_test"],
     )
+
+    # The aspect excludes external compile actions by default: a target depending
+    # on a tiny external lib (abseil int128) must shard only its own first-party
+    # source, never int128.cc. Analysis-only -- no external code is built.
+    carve_aspect_refresh(
+        name = "aspect_refresh_external_under_test",
+        targets = ["//rules/testdata:lib_with_external_dep"],
+        tags = ["manual"],
+    )
+    _aspect_excludes_external_test(
+        name = "aspect_excludes_external_test",
+        target_under_test = ":aspect_refresh_external_under_test",
+    )
+    carve_aspect_refresh(
+        name = "aspect_refresh_external_included_under_test",
+        targets = ["//rules/testdata:lib_with_external_dep"],
+        exclude_external_sources = False,
+        tags = ["manual"],
+    )
+    _aspect_includes_external_test(
+        name = "aspect_includes_external_test",
+        target_under_test = ":aspect_refresh_external_included_under_test",
+    )
     native.test_suite(
         name = name,
         tests = [
             ":refresh_wiring_test",
             ":aspect_refresh_wiring_test",
             ":aspect_shards_build_test",
+            ":aspect_excludes_external_test",
+            ":aspect_includes_external_test",
         ],
     )

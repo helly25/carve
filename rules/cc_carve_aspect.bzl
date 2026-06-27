@@ -54,7 +54,16 @@ def _find_source(argv):
 
 def _cc_carve_aspect_impl(target, ctx):
     direct = []
-    if CcInfo in target:
+
+    # Layer C builds a compilation database for first-party code. clangd resolves
+    # external headers through the `-I` flags carried on first-party entries, so
+    # external libraries need no entries of their own; sharding them only bloats
+    # the database (and the build) with sources nobody edits. Skip them by default.
+    # Propagation still descends through external targets (attr_aspects), so a
+    # first-party target reached only via an external edge is not lost.
+    is_external = target.label.workspace_name != ""
+    shard_target = CcInfo in target and not (ctx.attr.exclude_external_sources and is_external)
+    if shard_target:
         index = 0
         for action in target.actions:
             if action.mnemonic not in _COMPILE_MNEMONICS:
@@ -118,5 +127,7 @@ cc_carve_aspect = aspect(
             cfg = "exec",
             doc = "The lean carve_shard tool, run once per compile action to produce a shard.",
         ),
+        # Parameter: supplied by the propagating rule's same-named attribute.
+        "exclude_external_sources": attr.bool(default = True),
     },
 )

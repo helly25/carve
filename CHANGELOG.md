@@ -282,3 +282,8 @@ follows [SemVer](https://semver.org/).
   proto-merge tool) out of the full `carve` binary. Neither links `scan_deps` or
   the from-source LLVM, so building the whole Layer C path no longer triggers an
   LLVM compile, and the now-cheap `aspect_shards_build_test` rejoined CI.
+- Layer C aspect scopes to first-party by default: `cc_carve_aspect` /
+  `carve_aspect_refresh` now take `exclude_external_sources` (default `True`),
+  which skips sharding external-repo compile actions (clangd resolves their
+  headers via first-party entries' `-I` flags). Set `False` to shard the whole
+  transitive graph.
