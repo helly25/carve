@@ -99,11 +99,17 @@ common:clang --cxxopt=-Wno-unused-command-line-argument
 
 # Sanitizer presets.
 common:asan --copt -g
-common:asan --copt -fsanitize=address
+# -fsanitize=address is injected by the toolchain via --@llvm//config:asan=True
+# below (gated by config:asan), NOT a raw --copt. A raw copt would also instrument
+# the crt startup objects: cc_stage0_object resets config:asan=False for them, but
+# a raw copt ignores that, and asan_globals in crtendS.o then break the lld link
+# ("a section asan_globals with SHF_LINK_ORDER should not refer ... .eh_frame").
+# Same reasoning for the tsan/ubsan copts below.
 common:asan --copt -fno-sanitize=vptr
 common:asan --copt -fno-omit-frame-pointer
 common:asan --copt -DADDRESS_SANITIZER
-common:asan --linkopt -fsanitize=address
+# -fsanitize=address at link also comes from --@llvm//config:asan=True (the
+# toolchain gates it on config:asan), so no raw --linkopt for it either.
 common:asan --linkopt -fno-sanitize=vptr
 common:asan --linkopt -ldl
 common:asan --build_tag_filters=-no_san
@@ -117,10 +123,10 @@ common:asan --action_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbol
 common:asan --test_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
 common:asan --test_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
 
-common:tsan --copt -fsanitize=thread
 common:tsan --copt -g
 common:tsan --copt -fno-omit-frame-pointer
-common:tsan --linkopt -fsanitize=thread
+# -fsanitize=thread (compile + link) comes from --@llvm//config:tsan=True; see the
+# asan note above for why no raw -fsanitize copt/linkopt.
 common:tsan --features=tsan
 # Build the compiler-rt tsan runtime from source (the hermetic `llvm` toolchain
 # leaves it off by default; without it the tsan link fails: "cannot open ...
@@ -133,10 +139,10 @@ common:tsan --@llvm//config:tsan=True
 common:tsan --build_tag_filters=-no_san
 common:tsan --test_tag_filters=-no_san
 
-common:ubsan --copt -fsanitize=undefined
 common:ubsan --copt -g
 common:ubsan --copt -fno-omit-frame-pointer
-common:ubsan --linkopt -fsanitize=undefined
+# -fsanitize=undefined (compile + link) comes from --@llvm//config:ubsan=True; see
+# the asan note for why no raw -fsanitize copt/linkopt.
 common:ubsan --features=ubsan
 # Build the compiler-rt ubsan runtime from source. Runs combined with asan
 # (`--config=asan --config=ubsan`); both are link-compatible.
