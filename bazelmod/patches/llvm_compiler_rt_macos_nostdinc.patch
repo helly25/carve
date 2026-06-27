@@ -1,0 +1,18 @@
+diff --git a/3rd_party/llvm-project/x.x/compiler-rt/compiler-rt.BUILD.bazel b/3rd_party/llvm-project/x.x/compiler-rt/compiler-rt.BUILD.bazel
+index 12122af..506fe72 100644
+--- a/3rd_party/llvm-project/x.x/compiler-rt/compiler-rt.BUILD.bazel
++++ b/3rd_party/llvm-project/x.x/compiler-rt/compiler-rt.BUILD.bazel
+@@ -850,8 +850,11 @@ SANITIZER_COMMON_CFLAGS = select({
+     "-Wno-gnu",
+     "-Wno-variadic-macros",
+     "-Wno-c99-extensions",
+-    "-nostdinc++",
+-]
++] + select({
++    # macOS uses the SDK libc++ on the default include path; don't strip it.
++    "@platforms//os:macos": [],
++    "//conditions:default": ["-nostdinc++"],
++})
+ 
+ # buildifier: disable=unused-variable
+ SANITIZER_COMMON_LINK_FLAGS = [

@@ -56,18 +56,55 @@ jobs:
       - name: bazel test
         run: bazel test --config=clang //... --disk_cache="$HOME/.cache/bazel-disk" --repository_cache="$HOME/.cache/bazel-repo"
 
-  # NOTE: a runtime ThreadSanitizer job is not wired up: the hermetic `llvm`
-  # toolchain cannot build the compiler-rt sanitizer runtime (its internal
-  # symbolizer fails to compile, and there is no opt-out flag). The thread-safety
-  # annotations are instead enforced at compile time via `-Wthread-safety` (in the
-  # first-party `-Werror` scope), which runs in the `test` job above.
+  # Sanitizers run on ubuntu only: the hermetic `llvm` toolchain wires the
+  # compiler-rt runtimes + sanitizer interface headers for Linux but not yet macOS
+  # (tracked separately). These build the compiler-rt runtime from source (carve
+  # patches the symbolizer build; see MODULE.bazel + bazelmod/patches/) and
+  # instrument //carve/...; the LLVM-linking targets are tagged `no_san` and skipped.
+  asan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - name: Mount Bazel caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel-disk
+            ~/.cache/bazel-repo
+          key: bazel-asan-ubuntu-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-asan-ubuntu-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-
+            bazel-asan-ubuntu-
+            bazel-ubuntu-latest-
+      - name: bazel test (asan + ubsan)
+        run: bazel test --config=clang --config=asan --config=ubsan //carve/... --disk_cache="$HOME/.cache/bazel-disk" --repository_cache="$HOME/.cache/bazel-repo"
+
+  tsan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bazelbuild/setup-bazelisk@v3
+      - name: Mount Bazel caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel-disk
+            ~/.cache/bazel-repo
+          key: bazel-tsan-ubuntu-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-tsan-ubuntu-${{ hashFiles('MODULE.bazel', '.bazelversion') }}-
+            bazel-tsan-ubuntu-
+            bazel-ubuntu-latest-
+      - name: bazel test (tsan)
+        run: bazel test --config=clang --config=tsan //carve/... --disk_cache="$HOME/.cache/bazel-disk" --repository_cache="$HOME/.cache/bazel-repo"
 
   # Single required status check: one job that gates merge on the whole matrix,
   # so branch protection needs only `done`. A yq/jq step self-checks that every
   # workflow job is wired into `needs`, so a newly added job cannot silently
   # escape the gate. Mirrors the helly25 house pattern (mbo/bzl/xff).
   done:
-    needs: [pre-commit, test]
+    needs: [pre-commit, test, asan, tsan]
     if: always()
     runs-on: ubuntu-latest
     steps:

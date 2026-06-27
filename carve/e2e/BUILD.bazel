@@ -22,6 +22,8 @@ cc_test(
     size = "small",
     srcs = ["end_to_end_test.cc"],
     data = ["//carve"],
+    # Drives the LLVM-linked carve binary; excluded from sanitizer builds.
+    tags = ["no_san"],
     deps = [
         "//carve/process:process_cc",
         "//carve/third_party/bazel:analysis_v2_cc_proto",

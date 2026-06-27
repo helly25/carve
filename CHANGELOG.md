@@ -290,3 +290,12 @@ follows [SemVer](https://semver.org/).
   which skips sharding external-repo compile actions (clangd resolves their
   headers via first-party entries' `-I` flags). Set `False` to shard the whole
   transitive graph.
+- Sanitizer CI (ubuntu): asan+ubsan and tsan jobs run `--config=asan
+  --config=ubsan` / `--config=tsan` over `//carve/...`. This required patching the
+  BCR `llvm` module's compiler-rt so its sanitizer runtimes build at all (the
+  internal symbolizer couldn't see libc++ on macOS nor LLVM's public/generated
+  headers on either platform; see `bazelmod/patches/` + `single_version_override`
+  in MODULE.bazel, upstreamed via hermeticbuild/hermetic-llvm#655 and a follow-up).
+  LLVM-linking targets (`//carve:carve`, scan_deps, e2e) are tagged `no_san` and
+  excluded. macOS sanitizers are deferred (the toolchain wires the runtimes +
+  interface headers for Linux only).

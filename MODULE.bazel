@@ -60,6 +60,21 @@ bazel_dep(name = "helly25_proto", version = "1.2.1", dev_dependency = True)
 # (see the scoped per_file_copt in .bazelrc) while linking the same libc++.
 bazel_dep(name = "llvm", version = "0.8.9")
 
+# Patch the BCR `llvm` module with the compiler-rt sanitizer-runtime fixes until
+# they ship in a release: the internal symbolizer could not build, so no sanitizer
+# runtime (asan/ubsan/tsan) could either -- on macOS `-nostdinc++` stripped the SDK
+# libc++ from the symbolizer TU, and the TU could not see LLVM's public/generated
+# headers. Upstream: hermeticbuild/hermetic-llvm#655 (+ a headers follow-up). Drop
+# this override once the fixes land in a released `llvm` version (then bump above).
+single_version_override(
+    module_name = "llvm",
+    patch_strip = 1,
+    patches = [
+        "//bazelmod/patches:llvm_compiler_rt_macos_nostdinc.patch",
+        "//bazelmod/patches:llvm_compiler_rt_symbolizer_headers.patch",
+    ],
+)
+
 # Register the hermetic clang toolchain. Dev dependency so consumers compile
 # carve with their own toolchain (the @llvm-project overlay still travels as a
 # normal dep and is built by whatever toolchain is active, keeping libc++

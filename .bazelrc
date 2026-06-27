@@ -99,41 +99,58 @@ common:clang --cxxopt=-Wno-unused-command-line-argument
 
 # Sanitizer presets.
 common:asan --copt -g
-common:asan --copt -fsanitize=address
+# -fsanitize=address is injected by the toolchain via --@llvm//config:asan=True
+# below (gated by config:asan), NOT a raw --copt. A raw copt would also instrument
+# the crt startup objects: cc_stage0_object resets config:asan=False for them, but
+# a raw copt ignores that, and asan_globals in crtendS.o then break the lld link
+# ("a section asan_globals with SHF_LINK_ORDER should not refer ... .eh_frame").
+# Same reasoning for the tsan/ubsan copts below.
 common:asan --copt -fno-sanitize=vptr
 common:asan --copt -fno-omit-frame-pointer
 common:asan --copt -DADDRESS_SANITIZER
-common:asan --linkopt -fsanitize=address
+# -fsanitize=address at link also comes from --@llvm//config:asan=True (the
+# toolchain gates it on config:asan), so no raw --linkopt for it either.
 common:asan --linkopt -fno-sanitize=vptr
 common:asan --linkopt -ldl
 common:asan --build_tag_filters=-no_san
 common:asan --test_tag_filters=-no_san
 common:asan --features=asan
-common:asan --action_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+# Build + link the compiler-rt asan runtime from source (auto-disabled in the exec
+# config). Needs carve's compiler-rt patches (MODULE.bazel + bazelmod/patches/).
+common:asan --@llvm//config:asan=True
+# detect_container_overflow=0: the toolchain's libc++ is NOT asan-instrumented, so
+# the container-overflow check false-positives whenever instrumented carve code
+# shares a std::string/container with libc++ (the asan wiki recommends disabling it
+# when the whole program can't be instrumented). Re-enable once libc++ is built
+# with asan. All other asan checks stay on.
+common:asan --action_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always:detect_container_overflow=0
 common:asan --action_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
-common:asan --test_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+common:asan --test_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always:detect_container_overflow=0
 common:asan --test_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
 
-common:tsan --copt -fsanitize=thread
 common:tsan --copt -g
 common:tsan --copt -fno-omit-frame-pointer
-common:tsan --linkopt -fsanitize=thread
+# -fsanitize=thread (compile + link) comes from --@llvm//config:tsan=True; see the
+# asan note above for why no raw -fsanitize copt/linkopt.
 common:tsan --features=tsan
-# Building the compiler-rt sanitizer runtimes from source needs the flag below
-# (the hermetic `llvm` toolchain leaves them off by default, so without it the
-# tsan link fails: "cannot open ... libclang_rt.tsan.a"). It auto-disables in the
-# exec configuration, so host tools stay uninstrumented.
-#
-# Currently commented out: with `llvm` 0.8.9 (LLVM 22.1.7) enabling it makes
-# compiler-rt's internal symbolizer fail to compile ('llvm/DebugInfo/Symbolize/
-# DIPrinter.h' file not found) and there is no opt-out flag. Re-enable this (and
-# restore the tsan CI job) once the toolchain builds the sanitizer runtime cleanly.
-# common:tsan --@llvm//config:tsan=True
+# Build the compiler-rt tsan runtime from source (the hermetic `llvm` toolchain
+# leaves it off by default; without it the tsan link fails: "cannot open ...
+# libclang_rt.tsan.a"). It auto-disables in the exec configuration, so host tools
+# stay uninstrumented. Enabled now that carve patches the `llvm` module's
+# compiler-rt symbolizer build (see MODULE.bazel + bazelmod/patches/). Sanitizer
+# CI is ubuntu-only; macOS needs further, macOS-specific toolchain fixes.
+common:tsan --@llvm//config:tsan=True
+# Exclude the LLVM-linking targets (tagged `no_san`) from instrumented builds.
+common:tsan --build_tag_filters=-no_san
+common:tsan --test_tag_filters=-no_san
 
-common:ubsan --copt -fsanitize=undefined
 common:ubsan --copt -g
 common:ubsan --copt -fno-omit-frame-pointer
-common:ubsan --linkopt -fsanitize=undefined
+# -fsanitize=undefined (compile + link) comes from --@llvm//config:ubsan=True; see
+# the asan note for why no raw -fsanitize copt/linkopt.
 common:ubsan --features=ubsan
+# Build the compiler-rt ubsan runtime from source. Runs combined with asan
+# (`--config=asan --config=ubsan`); both are link-compatible.
+common:ubsan --@llvm//config:ubsan=True
 
 try-import %workspace%/.bazelrc.user.end
