@@ -118,9 +118,14 @@ common:asan --features=asan
 # Build + link the compiler-rt asan runtime from source (auto-disabled in the exec
 # config). Needs carve's compiler-rt patches (MODULE.bazel + bazelmod/patches/).
 common:asan --@llvm//config:asan=True
-common:asan --action_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+# detect_container_overflow=0: the toolchain's libc++ is NOT asan-instrumented, so
+# the container-overflow check false-positives whenever instrumented carve code
+# shares a std::string/container with libc++ (the asan wiki recommends disabling it
+# when the whole program can't be instrumented). Re-enable once libc++ is built
+# with asan. All other asan checks stay on.
+common:asan --action_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always:detect_container_overflow=0
 common:asan --action_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
-common:asan --test_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
+common:asan --test_env=ASAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always:detect_container_overflow=0
 common:asan --test_env=UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1:symbolize=1:strip_path_prefix=/proc/self/cwd/:color=always
 
 common:tsan --copt -g
