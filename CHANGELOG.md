@@ -277,3 +277,8 @@ follows [SemVer](https://semver.org/).
   `--disk_cache`/`--repository_cache`; the from-source LLVM build is ~12 min cold,
   cacheable), and make the `done` gate self-check that every workflow job is
   wired into its `needs` (mirrors mbo/bzl/xff).
+- Layer C runs lean, LLVM-free tools: split `//carve:carve_shard` (the aspect's
+  scan-free per-action exec tool) and `//carve:carve_aggregate` (the launcher's
+  proto-merge tool) out of the full `carve` binary. Neither links `scan_deps` or
+  the from-source LLVM, so building the whole Layer C path no longer triggers an
+  LLVM compile, and the now-cheap `aspect_shards_build_test` rejoined CI.

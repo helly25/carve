@@ -42,3 +42,44 @@ cc_binary(
         "@helly25_mbo//mbo/status:status_macros_cc",
     ],
 )
+
+# Lean, scan-free build of the `shard` subcommand for the Layer C aspect's
+# per-action exec tool. It links neither scan_deps nor the from-source LLVM, so it
+# builds in seconds rather than a full LLVM compile -- which makes a per-compile
+# build tool viable. See carve_shard.cc for the rationale.
+cc_binary(
+    name = "carve_shard",
+    srcs = ["carve_shard.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//carve/process:process_cc",
+        "//carve/shard:shard_cc",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:parse",
+        "@abseil-cpp//absl/flags:usage",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+    ],
+)
+
+# Lean build of the `aggregate` subcommand for the Layer C launcher
+# (carve_aspect_refresh). Merging proto records needs no compiler, so it links
+# neither scan_deps nor the from-source LLVM -- a `bazel run` of a Layer C refresh
+# (and the aspect build_test) therefore never triggers a full LLVM build. See
+# carve_aggregate.cc for the rationale.
+cc_binary(
+    name = "carve_aggregate",
+    srcs = ["carve_aggregate.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//carve/aggregate:aggregate_cc",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:parse",
+        "@abseil-cpp//absl/flags:usage",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+    ],
+)

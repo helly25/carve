@@ -102,7 +102,7 @@ Per-action, individually-cacheable shards for huge repos (design §4.7).
   → unstamped, re-scanned later), and writes a one-record shard whose shape
   matches `refresh`. Verified end-to-end: `shard` → `aggregate` → valid CDB.
 - ✅ The emitting aspect (`rules/cc_carve_aspect.bzl`): `cc_carve_aspect` walks
-  the cc graph and schedules one cacheable `carve shard` build action per compile
+  the cc graph and schedules one cacheable `carve_shard` build action per compile
   action, reading the fully-expanded command from `action.argv` (no `@param-file`
   indirection — Bazel expands it). Shards land in the `carve_shards` output group.
   `carve_aspect_refresh` (`rules/carve.bzl`) is the `bazel run` driver: it builds
@@ -110,24 +110,26 @@ Per-action, individually-cacheable shards for huge repos (design §4.7).
 - ✅ Per-action invalidation via Bazel: a shard's content is a function of its
   compile command, so the shard action's only input is its `command_file`. Bazel
   re-runs only the shards whose command changed; content edits don't re-shard
-  (the entry is unchanged). Shards are not header-scanned (`--scan=false`) — the
-  database does not use headers and Bazel owns invalidation. Validated by an
-  analysis test in CI (the wiring) and a `manual` `build_test` (run on demand — it
-  needs an exec-config carve, i.e. a full from-source LLVM build, too costly per CI
-  run), plus manual verification at LLVM-graph scale.
+  (the entry is unchanged). Shards are not header-scanned — the lean `carve_shard`
+  tool links no scanner; the database does not use headers and Bazel owns
+  invalidation. Validated in CI by an analysis test (the wiring) and a `build_test`
+  that builds the whole Layer C path with the lean tools (no LLVM build).
 
 Acceptance: aspect emits shards (done); `carve aggregate` merges them (done);
 a compile-command change re-shards only the affected action (done — via Bazel's
 action cache on `command_file`). **M5 complete.**
 
+- ✅ **Lean, LLVM-free Layer C tools:** the aspect's per-action exec tool is the
+  scan-free `//carve:carve_shard`, and `carve_aspect_refresh`'s merge tool is
+  `//carve:carve_aggregate`. Neither links `scan_deps`/LLVM — sharding records the
+  command, aggregation merges protos, and neither needs a compiler. Building the
+  whole Layer C path is now LLVM-free (≈seconds, not the tens-of-minutes exec-config
+  LLVM build the full `carve` required), so the `build_test` rejoined CI.
+
 Deferred Layer C refinements (follow-ups, not blockers): scoping the aspect to
 first-party targets (the design's `exclude_external_sources`, so it does not shard
-the whole external graph); recording headers in shards for a shard-built
-`HeaderIndex` (the design's `ASPECT_M` source kind); and a **lean shard tool** —
-the aspect runs `carve shard` as an exec-config build tool, but `carve` links the
-from-source LLVM/clang (via `scan_deps`) even though `shard --scan=false` never
-uses it, so the exec build is a full LLVM compile. Splitting a scan-free `shard`
-binary (no LLVM link) would make the per-action tool tiny and the exec build cheap.
+the whole external graph); and recording headers in shards for a shard-built
+`HeaderIndex` (the design's `ASPECT_M` source kind).
 
 ### M6 — 0.1 release + distribution
 `.bcr/` metadata, release automation, prebuilt binaries for common platforms (design §7); decide Windows in-or-out.
