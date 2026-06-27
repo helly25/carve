@@ -88,13 +88,12 @@ TEST(BuildEntriesTest, MapsCompileActionToDeBazeledEntry) {
     compile->add_arguments(std::string(arg));
   }
 
-  // `file` is made absolute against the directory; arguments stay exec-relative
-  // and the de-Bazel transform dropped -fno-canonical-system-headers.
+  // `file` stays exec-relative (clangd resolves it against `directory`); arguments
+  // stay exec-relative and the de-Bazel transform dropped -fno-canonical-system-headers.
   EXPECT_THAT(
       BuildEntries(container.SerializeAsString(), Options{.directory = "/execroot/ws"}),
       IsOkAndHolds(ElementsAre(AllOf(
-          Field(&cdb::CompileCommand::directory, Eq("/execroot/ws")),
-          Field(&cdb::CompileCommand::file, Eq("/execroot/ws/src/a.cc")),
+          Field(&cdb::CompileCommand::directory, Eq("/execroot/ws")), Field(&cdb::CompileCommand::file, Eq("src/a.cc")),
           Field(&cdb::CompileCommand::arguments, ElementsAre("clang", "-c", "src/a.cc", "-o", "bazel-out/a.o"))))));
 }
 
@@ -164,7 +163,7 @@ TEST(RunRefreshTest, ReadsProtoFileAndWritesCompileCommands) {
 
   std::ifstream out(out_path, std::ios::binary);
   const std::string cdb_json((std::istreambuf_iterator<char>(out)), std::istreambuf_iterator<char>());
-  EXPECT_THAT(cdb_json, HasSubstr("\"file\": \"/execroot/ws/src/a.cc\""));
+  EXPECT_THAT(cdb_json, HasSubstr("\"file\": \"src/a.cc\""));
   EXPECT_THAT(cdb_json, HasSubstr("\"directory\": \"/execroot/ws\""));
 }
 
@@ -464,21 +463,20 @@ TEST(RunRefreshTest, EditedHeaderForcesRescanOfTheOwningAction) {
   ASSERT_THAT(RunRefresh(fixture.options), IsOk());
 
   // The stale action was re-scanned exactly once and the fresh result (now
-  // including new.h) replaced the cache.
+  // including new.h) replaced the cache. The scanner returned absolute paths;
+  // they are stored execroot-relative (resolved against `directory`).
   EXPECT_THAT(fixture.scans, Eq(1));
   EXPECT_THAT(
       sidecar::Load(fixture.options.sidecar_path), IsOkAndHolds(EqualsProto(
-                                                       absl::Substitute(
-                                                           R"pb(records {
-                                                                  action_key: "k1"
-                                                                  sources: "a.cc"
-                                                                  command: "clang"
-                                                                  command: "-c"
-                                                                  command: "a.cc"
-                                                                  headers: "$0"
-                                                                  headers: "$1"
-                                                                })pb",
-                                                           fixture.header.string(), new_header))));
+                                                       R"pb(records {
+                                                              action_key: "k1"
+                                                              sources: "a.cc"
+                                                              command: "clang"
+                                                              command: "-c"
+                                                              command: "a.cc"
+                                                              headers: "dep.h"
+                                                              headers: "new.h"
+                                                            })pb")));
 }
 
 TEST(RunRefreshTest, UnmodifiedCachedScanIsReusedNotRescanned) {
@@ -510,6 +508,32 @@ TEST(RunRefreshTest, UnmodifiedCachedScanIsReusedNotRescanned) {
                                                                   written_at: 9999999999
                                                                 })pb",
                                                            fixture.header.string()))));
+}
+
+TEST(RunRefreshTest, SidecarHoldsNoAbsolutePathsForCrossHostDeterminism) {
+  // The cross-host determinism property (CARVE_DESIGN.md section 9): scan-deps
+  // resolves headers to absolute, per-host cache paths, but the persisted sidecar
+  // must hold none -- only execroot-relative paths -- so it is byte-identical
+  // across machines (and remotely cache-shareable). The scanner here mimics
+  // scan-deps by returning an execroot-absolute header; the stored record must
+  // carry only relative paths.
+  StalenessFixture fixture = MakeStalenessFixture("carve_determinism", /*written_at=*/1);
+  const std::string absolute_header = (fixture.dir / "bazel-out" / "k8" / "bin" / "gen.h").string();
+  fixture.options.scanner = [&absolute_header](absl::Span<const std::string> /*argv*/, std::string_view /*directory*/)
+      -> absl::StatusOr<std::vector<std::string>> { return std::vector<std::string>{absolute_header}; };
+
+  ASSERT_THAT(RunRefresh(fixture.options), IsOk());
+
+  const absl::StatusOr<ActionRecords> stored = sidecar::Load(fixture.options.sidecar_path);
+  ASSERT_THAT(stored, IsOk());
+  for (const ActionRecord& record : stored->records()) {
+    for (std::string_view source : record.sources()) {
+      EXPECT_FALSE(source.starts_with("/")) << "absolute source leaked into the sidecar: " << source;
+    }
+    for (std::string_view header : record.headers()) {
+      EXPECT_FALSE(header.starts_with("/")) << "absolute header leaked into the sidecar: " << header;
+    }
+  }
 }
 
 TEST(RunRefreshTest, FailedScanIsLeftUnstampedAndCounted) {

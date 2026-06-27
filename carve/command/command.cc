@@ -101,4 +101,18 @@ std::vector<std::string> ResolveXcodePlaceholders(
   return result;
 }
 
+std::string RelativizeToExecroot(std::string_view path, std::string_view execroot) {
+  const std::filesystem::path file(path);
+  if (execroot.empty() || file.is_relative()) {
+    return std::string(path);
+  }
+  // Purely lexical (no filesystem access). A path not under `execroot` comes back
+  // with a leading ".." component; treat that as "not ours, leave it absolute".
+  const std::filesystem::path relative = file.lexically_relative(execroot);
+  if (relative.empty() || relative.begin()->string() == "..") {
+    return std::string(path);
+  }
+  return relative.generic_string();
+}
+
 }  // namespace carve::command
