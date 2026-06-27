@@ -115,4 +115,38 @@ std::string RelativizeToExecroot(std::string_view path, std::string_view execroo
   return relative.generic_string();
 }
 
+std::vector<std::string> ParseMakeDependencies(std::string_view make) {
+  const std::string_view::size_type colon = make.find(':');
+  const std::string_view rest = colon == std::string_view::npos ? make : make.substr(colon + 1);
+  std::vector<std::string> deps;
+  std::string current;
+  for (std::string_view::size_type i = 0; i < rest.size(); ++i) {
+    const char character = rest[i];
+    if (character == '\\' && i + 1 < rest.size()) {
+      const char next = rest[i + 1];
+      if (next == '\n' || next == '\r') {
+        ++i;  // Line continuation.
+        continue;
+      }
+      if (next == ' ') {
+        current.push_back(' ');  // Escaped space in a path.
+        ++i;
+        continue;
+      }
+      current.push_back(character);
+    } else if (character == ' ' || character == '\t' || character == '\n' || character == '\r') {
+      if (!current.empty()) {
+        deps.push_back(current);
+        current.clear();
+      }
+    } else {
+      current.push_back(character);
+    }
+  }
+  if (!current.empty()) {
+    deps.push_back(current);
+  }
+  return deps;
+}
+
 }  // namespace carve::command

@@ -133,6 +133,30 @@ TEST(BuildShardTest, ResolvesXcodePlaceholders) {
                                                     })pb"));
 }
 
+TEST(BuildShardTest, RecordsDepfileHeadersAsAspectMRelativeToExecroot) {
+  Options options;
+  options.action_key = "k";
+  options.command = {"clang", "-c", "a.cc"};
+  options.source = "a.cc";
+  options.directory = "/exec";
+  // The aspect's `-M` depfile yields absolute (execroot) and relative deps; both
+  // are stored execroot-relative and the record is tagged ASPECT_M.
+  options.dep_headers = {"/exec/h/one.h", "bazel-out/gen.inc"};
+  options.now = FixedNow(7);
+
+  EXPECT_THAT(BuildShard(options), EqualsProto(R"pb(records {
+                                                      action_key: "k"
+                                                      sources: "a.cc"
+                                                      headers: "h/one.h"
+                                                      headers: "bazel-out/gen.inc"
+                                                      command: "clang"
+                                                      command: "-c"
+                                                      command: "a.cc"
+                                                      source_kind: ASPECT_M
+                                                      written_at: 7
+                                                    })pb"));
+}
+
 TEST(RunShardTest, ReadsCommandFileAndWritesShard) {
   const std::filesystem::path dir = std::filesystem::path(::testing::TempDir()) / "carve_shard";
   std::filesystem::remove_all(dir);
@@ -159,6 +183,40 @@ TEST(RunShardTest, ReadsCommandFileAndWritesShard) {
                                                                                   command: "-c"
                                                                                   command: "a.cc"
                                                                                   project_id: "p"
+                                                                                  written_at: 42
+                                                                                })pb")));
+}
+
+TEST(RunShardTest, ParsesDepfileIntoAspectMHeaders) {
+  const std::filesystem::path dir = std::filesystem::path(::testing::TempDir()) / "carve_shard_depfile";
+  std::filesystem::remove_all(dir);
+  const std::filesystem::path command_file = dir / "command.txt";
+  const std::filesystem::path depfile = dir / "a.d";
+  const std::filesystem::path out = dir / "shard.binpb";
+  ASSERT_THAT(io::WriteAtomically(command_file, "clang\n-c\na.cc\n"), IsOk());
+  // make-format `-M` output: the rule target, then the source and an execroot-
+  // absolute header. Both deps are stored execroot-relative; ASPECT_M is set.
+  ASSERT_THAT(io::WriteAtomically(depfile, "bazel-out/a.o: a.cc /exec/h/one.h\n"), IsOk());
+
+  FileOptions options;
+  options.action_key = "k";
+  options.command_file = command_file.string();
+  options.source = "a.cc";
+  options.directory = "/exec";
+  options.depfile = depfile.string();
+  options.now = FixedNow(42);
+  options.out_path = out.string();
+
+  ASSERT_THAT(RunShard(options), IsOk());
+  EXPECT_THAT(sidecar::Load(out), ::absl_testing::IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                                  action_key: "k"
+                                                                                  sources: "a.cc"
+                                                                                  headers: "a.cc"
+                                                                                  headers: "h/one.h"
+                                                                                  command: "clang"
+                                                                                  command: "-c"
+                                                                                  command: "a.cc"
+                                                                                  source_kind: ASPECT_M
                                                                                   written_at: 42
                                                                                 })pb")));
 }

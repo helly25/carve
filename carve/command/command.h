@@ -69,6 +69,17 @@ namespace carve::command {
 // `execroot` is `bazel info execution_root`; the inverse is `directory / path`.
 [[nodiscard]] std::string RelativizeToExecroot(std::string_view path, std::string_view execroot);
 
+// Parses `make`-format dependency output ("target: a.cc \<newline> b.h ...") --
+// what a compiler emits with `-M`/`-MF` -- into the list of dependency paths
+// (everything after the first ':'), handling line continuations and
+// backslash-escaped spaces. Pure: no filesystem access.
+//
+// This lets the lean `carve_shard` read an aspect-scheduled `-M` depfile and
+// record its headers without linking the LLVM dependency scanner; `scan_deps`
+// parses the same format from the in-process scanner (CARVE_DESIGN.md §4.7,
+// the ASPECT_M source kind).
+[[nodiscard]] std::vector<std::string> ParseMakeDependencies(std::string_view make);
+
 }  // namespace carve::command
 
 #endif  // CARVE_COMMAND_COMMAND_H_

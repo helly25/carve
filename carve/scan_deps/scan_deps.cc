@@ -24,6 +24,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
+#include "carve/command/command.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/DependencyScanning/DependencyScanningService.h"
 #include "clang/Tooling/DependencyScanningTool.h"
@@ -60,43 +61,6 @@ class CapturingDiagnosticConsumer : public clang::DiagnosticConsumer {
   std::string& sink_;
 };
 
-// Parses `make`-format dependency output ("target: a.cc \<nl> b.h ...") into the
-// list of dependency paths (everything after the first ':'), handling line
-// continuations and backslash-escaped spaces.
-std::vector<std::string> ParseMakeDependencies(std::string_view make) {
-  const std::string_view::size_type colon = make.find(':');
-  std::string_view rest = colon == std::string_view::npos ? make : make.substr(colon + 1);
-  std::vector<std::string> deps;
-  std::string current;
-  for (std::string_view::size_type i = 0; i < rest.size(); ++i) {
-    const char character = rest[i];
-    if (character == '\\' && i + 1 < rest.size()) {
-      const char next = rest[i + 1];
-      if (next == '\n' || next == '\r') {
-        ++i;  // Line continuation.
-        continue;
-      }
-      if (next == ' ') {
-        current.push_back(' ');  // Escaped space in a path.
-        ++i;
-        continue;
-      }
-      current.push_back(character);
-    } else if (character == ' ' || character == '\t' || character == '\n' || character == '\r') {
-      if (!current.empty()) {
-        deps.push_back(current);
-        current.clear();
-      }
-    } else {
-      current.push_back(character);
-    }
-  }
-  if (!current.empty()) {
-    deps.push_back(current);
-  }
-  return deps;
-}
-
 }  // namespace
 
 absl::StatusOr<std::vector<std::string>> ScanDependencies(
@@ -114,7 +78,7 @@ absl::StatusOr<std::vector<std::string>> ScanDependencies(
   if (!result.has_value()) {
     return absl::InvalidArgumentError(absl::StrCat("scan-deps failed: ", diagnostics));
   }
-  return ParseMakeDependencies(*result);
+  return command::ParseMakeDependencies(*result);
 }
 
 }  // namespace carve::scan_deps

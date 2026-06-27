@@ -49,7 +49,12 @@ struct Options {
   std::string xcode_developer_dir;   // resolves `__BAZEL_XCODE_DEVELOPER_DIR__`; optional
   std::string xcode_sdkroot;         // resolves `__BAZEL_XCODE_SDKROOT__`; optional
   HeaderScanner scanner;             // optional; null skips header scanning
-  NowFn now;                         // optional; null leaves `written_at` unset
+  // Headers parsed from an aspect-scheduled `-M` depfile (Layer C `ASPECT_M`).
+  // Recorded execroot-relative and tagged `source_kind = ASPECT_M`. In practice
+  // mutually exclusive with `scanner`: the lean carve_shard links no scanner and
+  // gets headers this way. Empty records none (the default build-free shard).
+  std::vector<std::string> dep_headers;
+  NowFn now;  // optional; null leaves `written_at` unset
 };
 
 // Builds a single-record shard from one compile action: de-Bazel the command,
@@ -73,6 +78,7 @@ struct FileOptions {
   std::string xcode_developer_dir;
   std::string xcode_sdkroot;
   HeaderScanner scanner;
+  std::string depfile;  // optional `-M` depfile; parsed into `ASPECT_M` headers (Layer C)
   NowFn now;
   std::string out_path;
 };

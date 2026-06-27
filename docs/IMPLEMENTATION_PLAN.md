@@ -146,8 +146,19 @@ action cache on `command_file`). **M5 complete.**
   entries). It is an aspect parameter on `carve_aspect_refresh`, default `True`;
   set `False` to shard the whole transitive graph.
 
-Deferred Layer C refinements (follow-ups, not blockers): recording headers in
-shards for a shard-built `HeaderIndex` (the design's `ASPECT_M` source kind).
+- ✅ **Layer C header recording (`ASPECT_M`):** opt-in `record_headers` aspect
+  parameter, default off so shards stay build-free. When set, each shard consumes
+  its compile action's own `-MF .../x.d` dependency file -- robust reuse of the
+  make-format `-M` output Bazel already generates for include validation (re-running
+  the *wrapped* compiler standalone with `-M` proved unreliable, so we reuse the
+  real depfile) -- and `carve_shard` parses it (lean, no LLVM, via the lifted
+  `command::ParseMakeDependencies`), storing the exact `#include` set
+  execroot-relative as `source_kind = ASPECT_M`. Enabling it couples sharding to
+  building each TU (the `.d` is a compile byproduct). Validated end-to-end against
+  an external consumer.
+
+Deferred Layer C refinements (follow-ups, not blockers): building a `HeaderIndex`
+from the recorded shard headers in `aggregate` (the shards now carry them).
 
 ### M6 — 0.1 release + distribution
 `.bcr/` metadata, release automation, prebuilt binaries for common platforms (design §7); decide Windows in-or-out.
