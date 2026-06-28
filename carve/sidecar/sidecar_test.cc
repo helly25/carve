@@ -209,8 +209,9 @@ TEST(SaveHeaderIndexTest, RoundTripsContent) {
   ASSERT_THAT(SaveHeaderIndex(path, index), IsOk());
   EXPECT_THAT(  // NL
       LoadHeaderIndex(path),
-      IsOkAndHolds(EqualsProto(R"pb(owners { header_path: "a.h" action_keys: "k1" }
-                                    schema_version: 1)pb")));
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(owners { header_path: "a.h" action_keys: "k1" }
+               schema_version: 1)pb")));
 }
 
 }  // namespace

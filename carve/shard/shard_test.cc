@@ -187,16 +187,17 @@ TEST(RunShardTest, ReadsCommandFileAndWritesShard) {
   ASSERT_THAT(RunShard(options), IsOk());
   EXPECT_THAT(  // NL
       sidecar::Load(out),
-      IsOkAndHolds(EqualsProto(R"pb(records {
-                                      action_key: "k"
-                                      sources: "a.cc"
-                                      headers: "a.cc"
-                                      command: "clang"
-                                      command: "-c"
-                                      command: "a.cc"
-                                      project_id: "p"
-                                      written_at: 42
-                                    })pb")));
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(records {
+                 action_key: "k"
+                 sources: "a.cc"
+                 headers: "a.cc"
+                 command: "clang"
+                 command: "-c"
+                 command: "a.cc"
+                 project_id: "p"
+                 written_at: 42
+               })pb")));
 }
 
 TEST(RunShardTest, ParsesDepfileIntoAspectMHeaders) {
@@ -222,17 +223,18 @@ TEST(RunShardTest, ParsesDepfileIntoAspectMHeaders) {
   ASSERT_THAT(RunShard(options), IsOk());
   EXPECT_THAT(  // NL
       sidecar::Load(out),
-      IsOkAndHolds(EqualsProto(R"pb(records {
-                                      action_key: "k"
-                                      sources: "a.cc"
-                                      headers: "a.cc"
-                                      headers: "h/one.h"
-                                      command: "clang"
-                                      command: "-c"
-                                      command: "a.cc"
-                                      source_kind: ASPECT_M
-                                      written_at: 42
-                                    })pb")));
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(records {
+                 action_key: "k"
+                 sources: "a.cc"
+                 headers: "a.cc"
+                 headers: "h/one.h"
+                 command: "clang"
+                 command: "-c"
+                 command: "a.cc"
+                 source_kind: ASPECT_M
+                 written_at: 42
+               })pb")));
 }
 
 TEST(RunShardTest, MissingCommandFileIsAnError) {
