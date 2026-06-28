@@ -6,6 +6,14 @@ BasedOnStyle: Google
 
 ColumnLimit: 120
 
+# Format embedded text protos in `R"pb(...)pb"` literals (used throughout the
+# tests) as TextProto, so clang-format owns their layout instead of hand-indenting.
+RawStringFormats:
+  - Language: TextProto
+    Delimiters:
+      - pb
+    BasedOnStyle: Google
+
 AlignAfterOpenBracket: AlwaysBreak
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty

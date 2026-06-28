@@ -74,18 +74,20 @@ TEST(BuildShardTest, DeBazelsScansAndStamps) {
 
   EXPECT_THAT(  // NL
       BuildShard(options),
-      EqualsProto(R"pb(records {
-                         action_key: "k"
-                         sources: "a.cc"
-                         headers: "a.cc"
-                         headers: "h/one.h"
-                         command: "clang"
-                         command: "-c"
-                         command: "a.cc"
-                         project_id: "p"
-                         written_at: 12345
-                         primary_output: "bazel-out/a.o"
-                       })pb"));
+      EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k"
+              sources: "a.cc"
+              headers: "a.cc"
+              headers: "h/one.h"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              project_id: "p"
+              written_at: 12345
+              primary_output: "bazel-out/a.o"
+            })pb"));
 }
 
 TEST(BuildShardTest, FailedScanRecordsNoHeadersAndLeavesUnstamped) {
@@ -111,14 +113,16 @@ TEST(BuildShardTest, NoScannerStampsWithoutHeaders) {
 
   EXPECT_THAT(  // NL
       BuildShard(options),
-      EqualsProto(R"pb(records {
-                         action_key: "k"
-                         sources: "a.cc"
-                         command: "clang"
-                         command: "-c"
-                         command: "a.cc"
-                         written_at: 7
-                       })pb"));
+      EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k"
+              sources: "a.cc"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              written_at: 7
+            })pb"));
 }
 
 TEST(BuildShardTest, ResolvesXcodePlaceholders) {
@@ -131,14 +135,16 @@ TEST(BuildShardTest, ResolvesXcodePlaceholders) {
 
   EXPECT_THAT(  // NL
       BuildShard(options),
-      EqualsProto(R"pb(records {
-                         action_key: "k"
-                         sources: "a.cc"
-                         command: "clang"
-                         command: "-isysroot/SDKs/MacOSX.sdk"
-                         command: "-c"
-                         command: "a.cc"
-                       })pb"));
+      EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k"
+              sources: "a.cc"
+              command: "clang"
+              command: "-isysroot/SDKs/MacOSX.sdk"
+              command: "-c"
+              command: "a.cc"
+            })pb"));
 }
 
 TEST(BuildShardTest, RecordsDepfileHeadersAsAspectMRelativeToExecroot) {
@@ -154,17 +160,19 @@ TEST(BuildShardTest, RecordsDepfileHeadersAsAspectMRelativeToExecroot) {
 
   EXPECT_THAT(  // NL
       BuildShard(options),
-      EqualsProto(R"pb(records {
-                         action_key: "k"
-                         sources: "a.cc"
-                         headers: "h/one.h"
-                         headers: "bazel-out/gen.inc"
-                         command: "clang"
-                         command: "-c"
-                         command: "a.cc"
-                         source_kind: ASPECT_M
-                         written_at: 7
-                       })pb"));
+      EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k"
+              sources: "a.cc"
+              headers: "h/one.h"
+              headers: "bazel-out/gen.inc"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              source_kind: ASPECT_M
+              written_at: 7
+            })pb"));
 }
 
 TEST(RunShardTest, ReadsCommandFileAndWritesShard) {
@@ -188,16 +196,17 @@ TEST(RunShardTest, ReadsCommandFileAndWritesShard) {
   EXPECT_THAT(  // NL
       sidecar::Load(out),
       IsOkAndHolds(EqualsProto(  // NL
-          R"pb(records {
-                 action_key: "k"
-                 sources: "a.cc"
-                 headers: "a.cc"
-                 command: "clang"
-                 command: "-c"
-                 command: "a.cc"
-                 project_id: "p"
-                 written_at: 42
-               })pb")));
+          R"pb(
+            records {
+              action_key: "k"
+              sources: "a.cc"
+              headers: "a.cc"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              project_id: "p"
+              written_at: 42
+            })pb")));
 }
 
 TEST(RunShardTest, ParsesDepfileIntoAspectMHeaders) {
@@ -224,17 +233,18 @@ TEST(RunShardTest, ParsesDepfileIntoAspectMHeaders) {
   EXPECT_THAT(  // NL
       sidecar::Load(out),
       IsOkAndHolds(EqualsProto(  // NL
-          R"pb(records {
-                 action_key: "k"
-                 sources: "a.cc"
-                 headers: "a.cc"
-                 headers: "h/one.h"
-                 command: "clang"
-                 command: "-c"
-                 command: "a.cc"
-                 source_kind: ASPECT_M
-                 written_at: 42
-               })pb")));
+          R"pb(
+            records {
+              action_key: "k"
+              sources: "a.cc"
+              headers: "a.cc"
+              headers: "h/one.h"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              source_kind: ASPECT_M
+              written_at: 42
+            })pb")));
 }
 
 TEST(RunShardTest, MissingCommandFileIsAnError) {
