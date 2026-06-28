@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "carve/cdb/json_matcher.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "mbo/testing/status.h"
@@ -46,18 +47,9 @@ TEST(ToJsonTest, SingleEntryWithArguments) {
   const std::vector<CompileCommand> entries = {
       {.directory = "/work", .file = "a.cc", .arguments = {"clang", "-c", "a.cc"}, .output = ""},
   };
-  EXPECT_THAT(
-      ToJson(entries), Eq("[\n"
-                          "  {\n"
-                          "    \"directory\": \"/work\",\n"
-                          "    \"file\": \"a.cc\",\n"
-                          "    \"arguments\": [\n"
-                          "      \"clang\",\n"
-                          "      \"-c\",\n"
-                          "      \"a.cc\"\n"
-                          "    ]\n"
-                          "  }\n"
-                          "]\n"));
+  EXPECT_THAT(  // NL
+      ToJson(entries),
+      EqJson(R"json([{"directory": "/work", "file": "a.cc", "arguments": ["clang", "-c", "a.cc"]}])json"));
 }
 
 TEST(ToJsonTest, OutputFieldEmittedWhenPresent) {
@@ -86,17 +78,9 @@ TEST(ToJsonTest, EntriesAreCommaSeparated) {
       {.directory = "/w", .file = "a.cc", .arguments = {}, .output = ""},
       {.directory = "/w", .file = "b.cc", .arguments = {}, .output = ""},
   };
-  EXPECT_THAT(
-      ToJson(entries), Eq("[\n"
-                          "  {\n"
-                          "    \"directory\": \"/w\",\n"
-                          "    \"file\": \"a.cc\"\n"
-                          "  },\n"
-                          "  {\n"
-                          "    \"directory\": \"/w\",\n"
-                          "    \"file\": \"b.cc\"\n"
-                          "  }\n"
-                          "]\n"));
+  EXPECT_THAT(  // NL
+      ToJson(entries),
+      EqJson(R"json([{"directory": "/w", "file": "a.cc"}, {"directory": "/w", "file": "b.cc"}])json"));
 }
 
 TEST(WriteTest, RoundTripsThroughToJson) {
