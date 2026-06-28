@@ -332,3 +332,11 @@ follows [SemVer](https://semver.org/).
   **unqualified** in `EXPECT_THAT` / `ASSERT_THAT` (no `::testing::` / `::absl_testing::` /
   `::mbo::testing::` inline; bring them in with a `using`); a pygrep `unqualified-matchers`
   pre-commit guard enforces this (fixture utilities like `::testing::TempDir` are exempt).
+- Re-sync the agent/style docs with the xff/coderef house style: CLAUDE.md now states
+  `AGENTS.md` and `STYLE_CPP.md` are binding and `@`-imports both so an agent always has
+  them in context; AGENTS.md's agent checklist adds conservative-edits (prefer `Edit` over
+  `Write`, edit in place, no speculative files/deps/features) and surface-conflicts (flag
+  design-vs-code disagreements rather than silently choosing); STYLE_CPP.md adds the
+  value-or-error rule (a value-or-error type IS `absl::StatusOr<T>`, not a hand-rolled
+  value+`Status`+ok-flag struct), the `EXPECT_EQ`-for-multiline-text exception, and the
+  rule that typed/parameterized tests supply a name generator.

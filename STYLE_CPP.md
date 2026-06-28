@@ -176,6 +176,10 @@ Propagate errors with the macros from `mbo/status/status_macros.h`
 (`@helly25_mbo//mbo/status:status_macros_cc`), not a hand-written
 `if (!x.ok()) return x.status();`.
 
+- **A "value or error" type IS `absl::StatusOr<T>`.** Do not hand-roll a struct that bundles
+  a value (or a `std::vector` / `std::optional`) with an `absl::Status` plus an "ok" flag:
+  `absl::StatusOr<T>` is exactly that, enforces the not-ok-has-no-value invariant by
+  construction, composes with the macros below, and matches every other API.
 - **`MBO_RETURN_IF_ERROR(expr)`** evaluates a `Status` or `StatusOr` and returns early if
   it is not OK. It returns a `mbo::status::StatusBuilder`, which converts to the calling
   function's `absl::Status` or `absl::StatusOr<T>`, so it works in both.
@@ -290,6 +294,9 @@ substitute for a committed test. Tests use GoogleTest + GoogleMock with these co
 - **Always `TEST_F` with a fixture**, never a bare `TEST`. Even an empty
   `struct FooTest : ::testing::Test {};` is preferred, so shared setup has a home.
 - One behaviour per test; name the test for the behaviour it asserts.
+- **Typed and parameterized tests supply a name generator** (for `TYPED_TEST_SUITE` /
+  `INSTANTIATE_TEST_SUITE_P`), deriving the case name from the type or value, so failures
+  read as named cases rather than numbered ones (`Suite/0`, `Suite/1`).
 
 ### Assertions: gmock matchers, not `EXPECT_EQ`
 
@@ -298,6 +305,8 @@ substitute for a committed test. Tests use GoogleTest + GoogleMock with these co
   give far better failure messages. The accepted exception is the boolean `EXPECT_TRUE` /
   `EXPECT_FALSE` (and `ASSERT_TRUE` / `ASSERT_FALSE`), which read fine on their own. Within a
   single test keep one style - do not mix, say, `EXPECT_TRUE(x)` and `EXPECT_THAT(y, IsTrue())`.
+- **Exception: use `EXPECT_EQ` for multiline-text comparisons** - its unified-diff output is
+  more readable than a matcher's for large strings (e.g. golden output or a rendered file).
 - **Name matchers unqualified - never a `::testing::` / `::absl_testing::` / `::mbo::testing::`
   prefix inline.** Bring each matcher in with a `using ::testing::Foo;` (or
   `using ::mbo::testing::Foo;`) in the test's anonymous namespace, then write `Foo(...)` in the
