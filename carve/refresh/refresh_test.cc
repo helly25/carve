@@ -267,15 +267,19 @@ TEST(RunRefreshTest, PopulatesHeadersFromTheInjectedScanner) {
   ASSERT_THAT(RunRefresh(options), IsOk());
 
   // The scanner's dependency paths are stored on the record as `headers`.
-  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                   action_key: "k1"
-                                                                                   sources: "src/a.cc"
-                                                                                   headers: "src/a.cc"
-                                                                                   headers: "dep.h"
-                                                                                   command: "clang"
-                                                                                   command: "-c"
-                                                                                   command: "src/a.cc"
-                                                                                 })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "src/a.cc"
+              headers: "src/a.cc"
+              headers: "dep.h"
+              command: "clang"
+              command: "-c"
+              command: "src/a.cc"
+            })pb")));
 }
 
 TEST(RunRefreshTest, UnchangedActionIsNotRescanned) {
@@ -290,15 +294,16 @@ TEST(RunRefreshTest, UnchangedActionIsNotRescanned) {
   // stamped (written_at set) and its cached paths do not exist on disk, so the
   // staleness check cannot prove a change and the action is reused.
   const ActionRecords seed = ParseTextProtoOrDie(
-      R"pb(records {
-             action_key: "k1"
-             sources: "src/a.cc"
-             command: "clang"
-             command: "-c"
-             command: "src/a.cc"
-             headers: "cached.h"
-             written_at: 1
-           })pb");
+      R"pb(
+        records {
+          action_key: "k1"
+          sources: "src/a.cc"
+          command: "clang"
+          command: "-c"
+          command: "src/a.cc"
+          headers: "cached.h"
+          written_at: 1
+        })pb");
   ASSERT_THAT(sidecar::Save(options.sidecar_path, seed), IsOk());
 
   int scans = 0;
@@ -329,14 +334,18 @@ TEST(RunRefreshTest, StampsWrittenAtUsingTheInjectedClock) {
   ASSERT_THAT(RunRefresh(options), IsOk());
 
   // The freshly built record carries the injected `now`'s timestamp.
-  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                   action_key: "k1"
-                                                                                   sources: "src/a.cc"
-                                                                                   command: "clang"
-                                                                                   command: "-c"
-                                                                                   command: "src/a.cc"
-                                                                                   written_at: 1700000000
-                                                                                 })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "src/a.cc"
+              command: "clang"
+              command: "-c"
+              command: "src/a.cc"
+              written_at: 1700000000
+            })pb")));
 }
 
 TEST(RunRefreshTest, ReusedRecordIsRestampedKeepingCachedHeaders) {
@@ -350,30 +359,35 @@ TEST(RunRefreshTest, ReusedRecordIsRestampedKeepingCachedHeaders) {
 
   // Seed a matching record stamped at an older time, with a cached header.
   const ActionRecords seed = ParseTextProtoOrDie(
-      R"pb(records {
-             action_key: "k1"
-             sources: "src/a.cc"
-             command: "clang"
-             command: "-c"
-             command: "src/a.cc"
-             headers: "cached.h"
-             written_at: 111
-           })pb");
+      R"pb(
+        records {
+          action_key: "k1"
+          sources: "src/a.cc"
+          command: "clang"
+          command: "-c"
+          command: "src/a.cc"
+          headers: "cached.h"
+          written_at: 111
+        })pb");
   ASSERT_THAT(sidecar::Save(options.sidecar_path, seed), IsOk());
 
   ASSERT_THAT(RunRefresh(options), IsOk());
 
   // The reused record keeps its cached header (content unchanged) but is
   // restamped to the current time so prune sees the project as live.
-  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                   action_key: "k1"
-                                                                                   sources: "src/a.cc"
-                                                                                   command: "clang"
-                                                                                   command: "-c"
-                                                                                   command: "src/a.cc"
-                                                                                   headers: "cached.h"
-                                                                                   written_at: 222
-                                                                                 })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "src/a.cc"
+              command: "clang"
+              command: "-c"
+              command: "src/a.cc"
+              headers: "cached.h"
+              written_at: 222
+            })pb")));
 }
 
 TEST(RunRefreshTest, WritesHeaderIndexAlongsideTheSidecar) {
@@ -396,9 +410,11 @@ TEST(RunRefreshTest, WritesHeaderIndexAlongsideTheSidecar) {
       std::filesystem::path(options.sidecar_path).parent_path() / "headers-index.binpb";
   EXPECT_THAT(
       sidecar::LoadHeaderIndex(index_path),
-      IsOkAndHolds(EqualsProto(R"pb(owners { header_path: "dep.h" action_keys: "k1" }
-                                    owners { header_path: "src/a.cc" action_keys: "k1" }
-                                    schema_version: 1)pb")));
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            owners { header_path: "dep.h" action_keys: "k1" }
+            owners { header_path: "src/a.cc" action_keys: "k1" }
+            schema_version: 1)pb")));
 }
 
 // Builds a refresh over a single `clang -c a.cc` action whose source and header
@@ -434,15 +450,16 @@ StalenessFixture MakeStalenessFixture(std::string_view name, std::int64_t writte
   // freshness is governed entirely by `written_at` vs the files' mtimes.
   const ActionRecords seed = ParseTextProtoOrDie(
       absl::Substitute(
-          R"pb(records {
-                 action_key: "k1"
-                 sources: "a.cc"
-                 command: "clang"
-                 command: "-c"
-                 command: "a.cc"
-                 headers: "$0"
-                 written_at: $1
-               })pb",
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "a.cc"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              headers: "$0"
+              written_at: $1
+            })pb",
           fixture.header.string(), written_at));
   ABSL_CHECK_OK(sidecar::Save(fixture.options.sidecar_path, seed));
   return fixture;
@@ -466,17 +483,19 @@ TEST(RunRefreshTest, EditedHeaderForcesRescanOfTheOwningAction) {
   // including new.h) replaced the cache. The scanner returned absolute paths;
   // they are stored execroot-relative (resolved against `directory`).
   EXPECT_THAT(fixture.scans, Eq(1));
-  EXPECT_THAT(
-      sidecar::Load(fixture.options.sidecar_path), IsOkAndHolds(EqualsProto(
-                                                       R"pb(records {
-                                                              action_key: "k1"
-                                                              sources: "a.cc"
-                                                              command: "clang"
-                                                              command: "-c"
-                                                              command: "a.cc"
-                                                              headers: "dep.h"
-                                                              headers: "new.h"
-                                                            })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(fixture.options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "a.cc"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              headers: "dep.h"
+              headers: "new.h"
+            })pb")));
 }
 
 TEST(RunRefreshTest, UnmodifiedCachedScanIsReusedNotRescanned) {
@@ -495,19 +514,20 @@ TEST(RunRefreshTest, UnmodifiedCachedScanIsReusedNotRescanned) {
   // Not re-scanned; the stored record (cached header + timestamp) is reused
   // verbatim.
   EXPECT_THAT(fixture.scans, Eq(0));
-  EXPECT_THAT(
-      sidecar::Load(fixture.options.sidecar_path), IsOkAndHolds(EqualsProto(
-                                                       absl::Substitute(
-                                                           R"pb(records {
-                                                                  action_key: "k1"
-                                                                  sources: "a.cc"
-                                                                  command: "clang"
-                                                                  command: "-c"
-                                                                  command: "a.cc"
-                                                                  headers: "$0"
-                                                                  written_at: 9999999999
-                                                                })pb",
-                                                           fixture.header.string()))));
+  EXPECT_THAT(  // NL
+      sidecar::Load(fixture.options.sidecar_path),
+      IsOkAndHolds(EqualsProto(absl::Substitute(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "a.cc"
+              command: "clang"
+              command: "-c"
+              command: "a.cc"
+              headers: "$0"
+              written_at: 9999999999
+            })pb",
+                                                fixture.header.string()))));
 }
 
 TEST(RunRefreshTest, SidecarHoldsNoAbsolutePathsForCrossHostDeterminism) {
@@ -554,13 +574,17 @@ TEST(RunRefreshTest, FailedScanIsLeftUnstampedAndCounted) {
   // a timestamp -- even though `now` is set -- so the next refresh re-scans
   // it instead of caching the incomplete result (CARVE_DESIGN.md section 4.2).
   EXPECT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::unresolved, Eq(1))));
-  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                   action_key: "k1"
-                                                                                   sources: "src/a.cc"
-                                                                                   command: "clang"
-                                                                                   command: "-c"
-                                                                                   command: "src/a.cc"
-                                                                                 })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "src/a.cc"
+              command: "clang"
+              command: "-c"
+              command: "src/a.cc"
+            })pb")));
 }
 
 TEST(RunRefreshTest, FailedScanIsRetriedOnTheNextRefresh) {
@@ -586,15 +610,19 @@ TEST(RunRefreshTest, FailedScanIsRetriedOnTheNextRefresh) {
   ASSERT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::unresolved, Eq(1))));
   scan_fails = false;
   EXPECT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::scanned, Eq(1))));
-  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                   action_key: "k1"
-                                                                                   sources: "src/a.cc"
-                                                                                   command: "clang"
-                                                                                   command: "-c"
-                                                                                   command: "src/a.cc"
-                                                                                   headers: "resolved.h"
-                                                                                   written_at: 555
-                                                                                 })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "src/a.cc"
+              command: "clang"
+              command: "-c"
+              command: "src/a.cc"
+              headers: "resolved.h"
+              written_at: 555
+            })pb")));
 }
 
 TEST(RunRefreshTest, ScansActionsInParallel) {
@@ -617,40 +645,42 @@ TEST(RunRefreshTest, ScansActionsInParallel) {
   };
 
   ASSERT_THAT(RunRefresh(options), IsOkAndHolds(Field(&RefreshStats::scanned, Eq(4))));
-  EXPECT_THAT(
-      sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(
-                                               R"pb(records {
-                                                      action_key: "k1"
-                                                      sources: "k1.cc"
-                                                      command: "clang"
-                                                      command: "-c"
-                                                      command: "k1.cc"
-                                                      headers: "k1.cc.h"
-                                                    }
-                                                    records {
-                                                      action_key: "k2"
-                                                      sources: "k2.cc"
-                                                      command: "clang"
-                                                      command: "-c"
-                                                      command: "k2.cc"
-                                                      headers: "k2.cc.h"
-                                                    }
-                                                    records {
-                                                      action_key: "k3"
-                                                      sources: "k3.cc"
-                                                      command: "clang"
-                                                      command: "-c"
-                                                      command: "k3.cc"
-                                                      headers: "k3.cc.h"
-                                                    }
-                                                    records {
-                                                      action_key: "k4"
-                                                      sources: "k4.cc"
-                                                      command: "clang"
-                                                      command: "-c"
-                                                      command: "k4.cc"
-                                                      headers: "k4.cc.h"
-                                                    })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "k1.cc"
+              command: "clang"
+              command: "-c"
+              command: "k1.cc"
+              headers: "k1.cc.h"
+            }
+            records {
+              action_key: "k2"
+              sources: "k2.cc"
+              command: "clang"
+              command: "-c"
+              command: "k2.cc"
+              headers: "k2.cc.h"
+            }
+            records {
+              action_key: "k3"
+              sources: "k3.cc"
+              command: "clang"
+              command: "-c"
+              command: "k3.cc"
+              headers: "k3.cc.h"
+            }
+            records {
+              action_key: "k4"
+              sources: "k4.cc"
+              command: "clang"
+              command: "-c"
+              command: "k4.cc"
+              headers: "k4.cc.h"
+            })pb")));
 }
 
 TEST(RunRefreshTest, ResolvesXcodePlaceholdersViaTheInjectedResolver) {
@@ -666,14 +696,18 @@ TEST(RunRefreshTest, ResolvesXcodePlaceholdersViaTheInjectedResolver) {
   ASSERT_THAT(RunRefresh(options), IsOk());
 
   // The wrapped_clang placeholders are replaced with the resolver's paths.
-  EXPECT_THAT(sidecar::Load(options.sidecar_path), IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                   action_key: "k1"
-                                                                                   sources: "a.cc"
-                                                                                   command: "/Dev/usr/bin/clang"
-                                                                                   command: "-isysroot/SDKs/MacOSX.sdk"
-                                                                                   command: "-c"
-                                                                                   command: "a.cc"
-                                                                                 })pb")));
+  EXPECT_THAT(  // NL
+      sidecar::Load(options.sidecar_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            records {
+              action_key: "k1"
+              sources: "a.cc"
+              command: "/Dev/usr/bin/clang"
+              command: "-isysroot/SDKs/MacOSX.sdk"
+              command: "-c"
+              command: "a.cc"
+            })pb")));
 }
 
 }  // namespace

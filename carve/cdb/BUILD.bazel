@@ -31,12 +31,43 @@ cc_library(
     ],
 )
 
+# Test-support gmock matcher `EqJson` for comparing JSON output (e.g. `ToJson`)
+# semantically (key-order / whitespace independent) instead of byte-for-byte. See
+# the header for the documented schema-validation gap. Header-only: `MATCHER_P`
+# must expand at the use site, so there is no `.cc`.
+cc_library(
+    name = "json_matcher_cc",
+    testonly = True,
+    hdrs = ["json_matcher.h"],
+    visibility = ["//carve:__subpackages__"],
+    deps = [
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest",
+        "@protobuf//:differencer",
+        "@protobuf//:json_util",
+        "@protobuf//:struct_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "json_matcher_test",
+    size = "small",
+    srcs = ["json_matcher_test.cc"],
+    deps = [
+        ":json_matcher_cc",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "cdb_test",
     size = "small",
     srcs = ["cdb_test.cc"],
     deps = [
         ":cdb_cc",
+        ":json_matcher_cc",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
         "@helly25_mbo//mbo/testing:status_cc",

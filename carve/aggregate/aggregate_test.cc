@@ -48,13 +48,18 @@ std::string ReadFile(const std::filesystem::path& path) {
 TEST(CombineTest, UnionsAndSortsByProjectThenActionKey) {
   const ActionRecords a = ParseTextProtoOrDie(R"pb(records { project_id: "p1" action_key: "b" })pb");
   const ActionRecords b = ParseTextProtoOrDie(
-      R"pb(records { project_id: "p2" action_key: "a" }
-           records { project_id: "p1" action_key: "a" })pb");
+      R"pb(
+        records { project_id: "p2" action_key: "a" }
+        records { project_id: "p1" action_key: "a" })pb");
 
   const std::vector<ActionRecords> inputs = {a, b};
-  EXPECT_THAT(Combine(inputs), EqualsProto(R"pb(records { project_id: "p1" action_key: "a" }
-                                                records { project_id: "p1" action_key: "b" }
-                                                records { project_id: "p2" action_key: "a" })pb"));
+  EXPECT_THAT(  // NL
+      Combine(inputs),
+      EqualsProto(  // NL
+          R"pb(
+            records { project_id: "p1" action_key: "a" }
+            records { project_id: "p1" action_key: "b" }
+            records { project_id: "p2" action_key: "a" })pb"));
 }
 
 TEST(CombineTest, DedupsByIdentityKeepingMostRecentlyWritten) {
@@ -77,8 +82,12 @@ TEST(CombineTest, CarriesSchemaVersionFromFirstInputThatSetsOne) {
   const ActionRecords second = ParseTextProtoOrDie(R"pb(schema_version: 3)pb");
 
   const std::vector<ActionRecords> inputs = {first, second};
-  EXPECT_THAT(Combine(inputs), EqualsProto(R"pb(records { project_id: "p" action_key: "a" }
-                                                schema_version: 3)pb"));
+  EXPECT_THAT(  // NL
+      Combine(inputs),
+      EqualsProto(  // NL
+          R"pb(
+            records { project_id: "p" action_key: "a" }
+            schema_version: 3)pb"));
 }
 
 TEST(CombineTest, EmptyInputsYieldEmpty) {
@@ -97,28 +106,30 @@ TEST(RunAggregateTest, MergesSidecarsIntoOneDatabase) {
   ASSERT_THAT(
       sidecar::Save(
           shard1, ParseTextProtoOrDie(
-                      R"pb(records {
-                             project_id: "p"
-                             action_key: "a"
-                             command: "clang"
-                             command: "-c"
-                             command: "carve/a.cc"
-                             sources: "carve/a.cc"
-                             primary_output: "bazel-out/a.o"
-                           })pb")),
+                      R"pb(
+                        records {
+                          project_id: "p"
+                          action_key: "a"
+                          command: "clang"
+                          command: "-c"
+                          command: "carve/a.cc"
+                          sources: "carve/a.cc"
+                          primary_output: "bazel-out/a.o"
+                        })pb")),
       IsOk());
   ASSERT_THAT(
       sidecar::Save(
           shard2, ParseTextProtoOrDie(
-                      R"pb(records {
-                             project_id: "p"
-                             action_key: "b"
-                             command: "clang"
-                             command: "-c"
-                             command: "carve/b.cc"
-                             sources: "carve/b.cc"
-                             primary_output: "bazel-out/b.o"
-                           })pb")),
+                      R"pb(
+                        records {
+                          project_id: "p"
+                          action_key: "b"
+                          command: "clang"
+                          command: "-c"
+                          command: "carve/b.cc"
+                          sources: "carve/b.cc"
+                          primary_output: "bazel-out/b.o"
+                        })pb")),
       IsOk());
 
   const std::vector<std::filesystem::path> shards = {shard1, shard2};

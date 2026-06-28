@@ -340,3 +340,12 @@ follows [SemVer](https://semver.org/).
   value-or-error rule (a value-or-error type IS `absl::StatusOr<T>`, not a hand-rolled
   value+`Status`+ok-flag struct), the `EXPECT_EQ`-for-multiline-text exception, and the
   rule that typed/parameterized tests supply a name generator.
+- Semantic JSON test matching: add `carve/cdb:json_matcher_cc` with an `EqJson`
+  gmock matcher that parses both sides into `google::protobuf::Value` (via
+  `JsonStringToMessage`) and compares them with `MessageDifferencer`, so JSON is
+  matched key-order / whitespace independently rather than byte-for-byte. Convert
+  `cdb_test` off escaped `Eq("[\n"...)` string literals to readable
+  `EqJson(R"json(...)json")`, and enable clang-format JSON formatting via a
+  `Language: Json` `RawStringFormats` entry (with `CanonicalDelimiter` so the
+  `json` delimiter is preserved). `EqJson` gives semantic equality but does not
+  yet validate the compile_commands.json schema (documented follow-up).
