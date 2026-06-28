@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "absl/status/status_matchers.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "carve/io/io.h"
@@ -32,13 +31,15 @@
 #include "gtest/gtest.h"
 #include "mbo/proto/matchers.h"
 #include "mbo/proto/parse_text_proto.h"
+#include "mbo/testing/status.h"
 
 namespace carve::shard {
 namespace {
 
-using ::absl_testing::IsOk;
 using ::mbo::proto::EqualsProto;
 using ::mbo::proto::ParseTextProtoOrDie;
+using ::mbo::testing::IsOk;
+using ::mbo::testing::IsOkAndHolds;
 
 // A scanner returning a fixed header set, regardless of input.
 HeaderScanner FixedScanner(std::vector<std::string> headers) {
@@ -175,16 +176,16 @@ TEST(RunShardTest, ReadsCommandFileAndWritesShard) {
   options.out_path = out.string();
 
   ASSERT_THAT(RunShard(options), IsOk());
-  EXPECT_THAT(sidecar::Load(out), ::absl_testing::IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                  action_key: "k"
-                                                                                  sources: "a.cc"
-                                                                                  headers: "a.cc"
-                                                                                  command: "clang"
-                                                                                  command: "-c"
-                                                                                  command: "a.cc"
-                                                                                  project_id: "p"
-                                                                                  written_at: 42
-                                                                                })pb")));
+  EXPECT_THAT(sidecar::Load(out), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                  action_key: "k"
+                                                                  sources: "a.cc"
+                                                                  headers: "a.cc"
+                                                                  command: "clang"
+                                                                  command: "-c"
+                                                                  command: "a.cc"
+                                                                  project_id: "p"
+                                                                  written_at: 42
+                                                                })pb")));
 }
 
 TEST(RunShardTest, ParsesDepfileIntoAspectMHeaders) {
@@ -208,17 +209,17 @@ TEST(RunShardTest, ParsesDepfileIntoAspectMHeaders) {
   options.out_path = out.string();
 
   ASSERT_THAT(RunShard(options), IsOk());
-  EXPECT_THAT(sidecar::Load(out), ::absl_testing::IsOkAndHolds(EqualsProto(R"pb(records {
-                                                                                  action_key: "k"
-                                                                                  sources: "a.cc"
-                                                                                  headers: "a.cc"
-                                                                                  headers: "h/one.h"
-                                                                                  command: "clang"
-                                                                                  command: "-c"
-                                                                                  command: "a.cc"
-                                                                                  source_kind: ASPECT_M
-                                                                                  written_at: 42
-                                                                                })pb")));
+  EXPECT_THAT(sidecar::Load(out), IsOkAndHolds(EqualsProto(R"pb(records {
+                                                                  action_key: "k"
+                                                                  sources: "a.cc"
+                                                                  headers: "a.cc"
+                                                                  headers: "h/one.h"
+                                                                  command: "clang"
+                                                                  command: "-c"
+                                                                  command: "a.cc"
+                                                                  source_kind: ASPECT_M
+                                                                  written_at: 42
+                                                                })pb")));
 }
 
 TEST(RunShardTest, MissingCommandFileIsAnError) {

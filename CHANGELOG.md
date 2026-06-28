@@ -323,3 +323,9 @@ follows [SemVer](https://semver.org/).
   AI-agent checklist now mandates reading RULES.md and STYLE_CPP.md before writing
   C++, so the detailed style (status matchers, `// NL`, idioms) is in the compulsory
   pre-coding read rather than only cross-referenced from the document map.
+- Adopt the `mbo::testing` status matchers across all tests (helly25 house
+  convention): every test now uses `mbo/testing/status.h` +
+  `@helly25_mbo//mbo/testing:status_cc` (`IsOk` / `IsOkAndHolds` / `StatusIs`, plus the
+  `MBO_ASSERT_OK_AND_ASSIGN` / `MBO_ASSERT_OK_AND_MOVE_TO` bind macros) instead of
+  Abseil's `::absl_testing::`, which is now disallowed and rejected by a pygrep
+  pre-commit guard. STYLE_CPP.md + RULES.md updated to mandate it.

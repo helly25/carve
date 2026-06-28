@@ -17,21 +17,21 @@
 
 #include <filesystem>
 
-#include "absl/status/status_matchers.h"
 #include "carve/sidecar/carve.pb.h"
 #include "carve/sidecar/sidecar.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "mbo/proto/matchers.h"
 #include "mbo/proto/parse_text_proto.h"
+#include "mbo/testing/status.h"
 
 namespace carve::prune {
 namespace {
 
-using ::absl_testing::IsOk;
-using ::absl_testing::IsOkAndHolds;
 using ::mbo::proto::EqualsProto;
 using ::mbo::proto::ParseTextProtoOrDie;
+using ::mbo::testing::IsOk;
+using ::mbo::testing::IsOkAndHolds;
 using ::testing::Eq;
 
 TEST(PruneRecordsTest, DropsStampedRecordsOlderThanCutoffKeepsRest) {

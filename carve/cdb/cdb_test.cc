@@ -22,14 +22,14 @@
 #include <string>
 #include <vector>
 
-#include "absl/status/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "mbo/testing/status.h"
 
 namespace carve::cdb {
 namespace {
 
-using ::absl_testing::IsOk;
+using ::mbo::testing::IsOk;
 using ::testing::Eq;
 using ::testing::HasSubstr;
 

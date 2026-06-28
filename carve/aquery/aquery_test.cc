@@ -15,15 +15,15 @@
 
 #include "carve/aquery/aquery.h"
 
-#include "absl/status/status_matchers.h"
 #include "carve/third_party/bazel/analysis_v2.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "mbo/testing/status.h"
 
 namespace carve::aquery {
 namespace {
 
-using ::absl_testing::IsOkAndHolds;
+using ::mbo::testing::IsOkAndHolds;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Eq;

@@ -27,9 +27,9 @@ cc_test(
     deps = [
         "//carve/process:process_cc",
         "//carve/third_party/bazel:analysis_v2_cc_proto",
-        "@abseil-cpp//absl/status:status_matchers",
         "@bazel_tools//tools/cpp/runfiles",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+        "@helly25_mbo//mbo/testing:status_cc",
     ],
 )

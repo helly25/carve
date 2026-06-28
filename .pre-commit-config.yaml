@@ -66,3 +66,12 @@ repos:
         language: pygrep
         # Enforced on code/config, not Markdown prose that documents the rule.
         exclude: '(\.md$|^\.pre-commit-config\.yaml$)'
+
+      - id: no-absl-testing-matchers
+        name: 'use mbo::testing status matchers, not ::absl_testing::'
+        # House convention (STYLE_CPP.md "Status matchers"): mbo::testing is the
+        # canonical superset; the abseil matchers are disallowed. C++ only, so the
+        # Markdown docs that name the banned token do not trip it.
+        entry: '::absl_testing::'
+        language: pygrep
+        types_or: [c++]

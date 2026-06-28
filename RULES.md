@@ -85,6 +85,8 @@ file is corrected.
     `EXPECT_NE(text.find("x"), npos)`.
   - equality: `Eq(...)` / `StrEq(...)`; containers: `ElementsAre`, `IsEmpty`,
     `SizeIs`; structs: `Field(&T::member, matcher)` with `AllOf` for several.
-  - status: `absl_testing::IsOk()`, `StatusIs(code)`, and
-    `IsOkAndHolds(value_matcher)`. Use `IsOkAndHolds(m)` rather than asserting
-    `IsOk()` and then dereferencing (`*x`) to compare the value.
+  - status: the `mbo::testing` matchers (`mbo/testing/status.h`,
+    `@helly25_mbo//mbo/testing:status_cc`) `IsOk()`, `StatusIs(code)`,
+    `IsOkAndHolds(value_matcher)`; `::absl_testing::` is disallowed (see STYLE_CPP.md
+    "Status matchers"). Use `IsOkAndHolds(m)` rather than asserting `IsOk()` and then
+    dereferencing (`*x`) to compare the value.

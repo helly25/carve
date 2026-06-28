@@ -329,13 +329,15 @@ substitute for a committed test. Tests use GoogleTest + GoogleMock with these co
 
 ### Status matchers
 
-- carve currently uses Abseil's status matchers (`absl/status/status_matchers.h`):
-  `EXPECT_THAT(status_or, ::absl_testing::IsOk())` and
-  `IsOkAndHolds(m)` / `StatusIs(absl::StatusCode::kInvalidArgument)`. The equivalent helly25
-  convention is `mbo::testing` (`IsOk` / `StatusIs` / `IsOkAndHolds`, plus
-  `MBO_ASSERT_OK_AND_ASSIGN` and `MBO_ASSERT_OK_AND_MOVE_TO` to assert-OK-and-bind in one
-  step - the test mirrors of `MBO_ASSIGN_OR_RETURN` / `MBO_MOVE_TO_OR_RETURN`). Either is
-  acceptable; prefer **`IsOkAndHolds(m)`** over `IsOk()` followed by dereferencing:
+- Use the **`mbo::testing`** status matchers (`#include "mbo/testing/status.h"`, dep
+  `@helly25_mbo//mbo/testing:status_cc`): `IsOk()`, `IsOkAndHolds(m)`,
+  `StatusIs(absl::StatusCode::kInvalidArgument[, msg])`, plus the assert-OK-and-bind macros
+  `MBO_ASSERT_OK_AND_ASSIGN(target, expr)` and `MBO_ASSERT_OK_AND_MOVE_TO(expr, target)`
+  (test mirrors of `MBO_ASSIGN_OR_RETURN` / `MBO_MOVE_TO_OR_RETURN`) and `MBO_EXPECT_OK` /
+  `MBO_ASSERT_OK`. mbo's set is the helly25-canonical superset: it works on both `Status`
+  and `StatusOr` and adds payload matchers. **Abseil's `::absl_testing::` matchers
+  (`absl/status/status_matchers.h`) are disallowed** and a pre-commit guard rejects them.
+  Prefer **`IsOkAndHolds(m)`** over `IsOk()` followed by dereferencing:
   `EXPECT_THAT(Parse(in), IsOkAndHolds(SizeIs(3)))`.
 
 ### Protocol-buffer fixtures and matchers
