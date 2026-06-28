@@ -45,11 +45,12 @@ TEST(PruneRecordsTest, DropsStampedRecordsOlderThanCutoffKeepsRest) {
   // cutoff = 200: `old` (100) is dropped; `fresh` (300) and `exactly_cutoff`
   // (>= cutoff) stay; `unstamped` (written_at 0) is always kept; schema_version
   // is preserved.
-  EXPECT_THAT(
-      PruneRecords(records, /*cutoff=*/200), EqualsProto(R"pb(records { action_key: "fresh" written_at: 300 }
-                                                              records { action_key: "exactly_cutoff" written_at: 200 }
-                                                              records { action_key: "unstamped" }
-                                                              schema_version: 1)pb"));
+  EXPECT_THAT(  // NL
+      PruneRecords(records, /*cutoff=*/200),
+      EqualsProto(R"pb(records { action_key: "fresh" written_at: 300 }
+                       records { action_key: "exactly_cutoff" written_at: 200 }
+                       records { action_key: "unstamped" }
+                       schema_version: 1)pb"));
 }
 
 TEST(PruneRecordsTest, EmptyStaysEmpty) {

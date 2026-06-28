@@ -52,9 +52,11 @@ TEST(CombineTest, UnionsAndSortsByProjectThenActionKey) {
            records { project_id: "p1" action_key: "a" })pb");
 
   const std::vector<ActionRecords> inputs = {a, b};
-  EXPECT_THAT(Combine(inputs), EqualsProto(R"pb(records { project_id: "p1" action_key: "a" }
-                                                records { project_id: "p1" action_key: "b" }
-                                                records { project_id: "p2" action_key: "a" })pb"));
+  EXPECT_THAT(  // NL
+      Combine(inputs),
+      EqualsProto(R"pb(records { project_id: "p1" action_key: "a" }
+                       records { project_id: "p1" action_key: "b" }
+                       records { project_id: "p2" action_key: "a" })pb"));
 }
 
 TEST(CombineTest, DedupsByIdentityKeepingMostRecentlyWritten) {
@@ -77,8 +79,10 @@ TEST(CombineTest, CarriesSchemaVersionFromFirstInputThatSetsOne) {
   const ActionRecords second = ParseTextProtoOrDie(R"pb(schema_version: 3)pb");
 
   const std::vector<ActionRecords> inputs = {first, second};
-  EXPECT_THAT(Combine(inputs), EqualsProto(R"pb(records { project_id: "p" action_key: "a" }
-                                                schema_version: 3)pb"));
+  EXPECT_THAT(  // NL
+      Combine(inputs),
+      EqualsProto(R"pb(records { project_id: "p" action_key: "a" }
+                       schema_version: 3)pb"));
 }
 
 TEST(CombineTest, EmptyInputsYieldEmpty) {

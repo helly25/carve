@@ -56,8 +56,9 @@ TEST(SaveLoadTest, RoundTripsContent) {
 }
 
 TEST(DiffActionKeysTest, PartitionsAddedRemovedCommon) {
-  const ActionRecords stored = ParseTextProtoOrDie(R"pb(records { action_key: "k1" }
-                                                        records { action_key: "k2" })pb");
+  const ActionRecords stored = ParseTextProtoOrDie(  // NL
+      R"pb(records { action_key: "k1" }
+           records { action_key: "k2" })pb");
   const std::vector<std::string> current = {"k2", "k3"};
   EXPECT_THAT(
       DiffActionKeys(stored, current),
@@ -98,12 +99,14 @@ TEST(MergeRecordsTest, ChangedCommandUsesCurrentRecord) {
 TEST(MergeRecordsTest, DropsRemovedAndIncludesAddedSortedByKey) {
   // k1 is absent from current -> removed.
   const ActionRecords stored = ParseTextProtoOrDie(R"pb(records { action_key: "k1" command: "clang" })pb");
-  const ActionRecords current = ParseTextProtoOrDie(R"pb(records { action_key: "k3" command: "clang" }
-                                                         records { action_key: "k2" command: "clang" })pb");
+  const ActionRecords current = ParseTextProtoOrDie(  // NL
+      R"pb(records { action_key: "k3" command: "clang" }
+           records { action_key: "k2" command: "clang" })pb");
 
-  EXPECT_THAT(
-      MergeRecords(stored, current, "", {}), EqualsProto(R"pb(records { action_key: "k2" command: "clang" }
-                                                              records { action_key: "k3" command: "clang" })pb"));
+  EXPECT_THAT(  // NL
+      MergeRecords(stored, current, "", {}),
+      EqualsProto(R"pb(records { action_key: "k2" command: "clang" }
+                       records { action_key: "k3" command: "clang" })pb"));
 }
 
 TEST(MergeRecordsTest, OtherProjectsArePreservedUntouched) {
@@ -147,11 +150,13 @@ TEST(FindReusableRecordTest, MatchesOnlyOnKeyCommandAndProject) {
 
   // The match returns the stored record (so the caller can read its cached
   // fields); a changed command, a new key, or another project finds nothing.
-  EXPECT_THAT(FindReusableRecord(stored, same, "A"), Pointee(EqualsProto(R"pb(action_key: "k1"
-                                                                              command: "clang"
-                                                                              command: "a.cc"
-                                                                              project_id: "A"
-                                                                              headers: "cached.h")pb")));
+  EXPECT_THAT(  // NL
+      FindReusableRecord(stored, same, "A"),
+      Pointee(EqualsProto(R"pb(action_key: "k1"
+                               command: "clang"
+                               command: "a.cc"
+                               project_id: "A"
+                               headers: "cached.h")pb")));
   EXPECT_THAT(FindReusableRecord(stored, other_command, "A"), IsNull());  // command changed
   EXPECT_THAT(FindReusableRecord(stored, other_key, "A"), IsNull());      // new action
   EXPECT_THAT(FindReusableRecord(stored, same, "B"), IsNull());           // other project
@@ -182,10 +187,11 @@ TEST(BuildHeaderIndexTest, MapsHeadersToSortedOwners) {
 
   // a.h is owned by k1 and k2 (sorted, k1 canonical); b.h only by k2; owners
   // sorted by header_path.
-  EXPECT_THAT(
-      BuildHeaderIndex(records), EqualsProto(R"pb(owners { header_path: "a.h" action_keys: "k1" action_keys: "k2" }
-                                                  owners { header_path: "b.h" action_keys: "k2" }
-                                                  schema_version: 1)pb"));
+  EXPECT_THAT(  // NL
+      BuildHeaderIndex(records),
+      EqualsProto(R"pb(owners { header_path: "a.h" action_keys: "k1" action_keys: "k2" }
+                       owners { header_path: "b.h" action_keys: "k2" }
+                       schema_version: 1)pb"));
 }
 
 TEST(LoadHeaderIndexTest, MissingFileYieldsEmptyIndex) {
@@ -193,15 +199,18 @@ TEST(LoadHeaderIndexTest, MissingFileYieldsEmptyIndex) {
 }
 
 TEST(SaveHeaderIndexTest, RoundTripsContent) {
-  const HeaderIndex index = ParseTextProtoOrDie(R"pb(owners { header_path: "a.h" action_keys: "k1" }
-                                                     schema_version: 1)pb");
+  const HeaderIndex index = ParseTextProtoOrDie(  // NL
+      R"pb(owners { header_path: "a.h" action_keys: "k1" }
+           schema_version: 1)pb");
   const std::filesystem::path path =
       std::filesystem::path(::testing::TempDir()) / "carve_header_index" / "headers-index.binpb";
   std::filesystem::remove_all(path.parent_path());
 
   ASSERT_THAT(SaveHeaderIndex(path, index), IsOk());
-  EXPECT_THAT(LoadHeaderIndex(path), IsOkAndHolds(EqualsProto(R"pb(owners { header_path: "a.h" action_keys: "k1" }
-                                                                   schema_version: 1)pb")));
+  EXPECT_THAT(  // NL
+      LoadHeaderIndex(path),
+      IsOkAndHolds(EqualsProto(R"pb(owners { header_path: "a.h" action_keys: "k1" }
+                                    schema_version: 1)pb")));
 }
 
 }  // namespace
