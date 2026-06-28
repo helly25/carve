@@ -97,6 +97,14 @@ clang-format picks a layout per line; these habits steer it toward the readable 
    };
    ```
 
+   **In a long array of struct literals - a registry-style table such as `kDescriptors` or
+   `kSubcommands` - put the trailing comma on _every_ element**, even the short ones that
+   would fit on a single line, so clang-format expands the whole table uniformly, one
+   field per line. A consistent table you scroll through reads better than a mix of
+   one-liners and exploded rows packed to save height. This stays a deliberate, per-table
+   choice made element by element: `InsertTrailingCommas` is off (we do not always want
+   trailing commas), so clang-format never forces it for you.
+
 3. **Force a line break with a comment rather than let clang-format cram a value at the right
    margin.** A long argument - especially a raw string such as a proto `R"pb(...)pb"` - otherwise
    gets packed onto the call line and shoved against the 120 column, unreadable. A trailing
@@ -146,6 +154,12 @@ clang-format picks a layout per line; these habits steer it toward the readable 
     cache-friendlier. In tests, `std::map` / `std::set` are fine.
   - Small compile-time tables: `mbo::container::LimitedMap` / `LimitedSet`.
   - A type-detection trait may name a `std::` container type freely - it must, to recognize it.
+- **A read-only string parameter is `std::string_view` (by value), not `const std::string&`.**
+  This is pretty much always: a `std::string_view` binds to a `std::string`, a string literal,
+  a `char*`, or another view with no allocation and no `.c_str()` dance, so the `const&` only
+  narrows what callers may pass. Keep `const std::string&` (or `std::string` by value) only
+  when the body genuinely needs a `std::string` - it calls `.c_str()` for a C API, stores or
+  moves the argument, or passes it to something that itself wants `const std::string&`.
 - **A by-value `std::string_view` is never `const`.** The characters it views are already
   `const`; making the view itself `const` only disables the view's own API
   (`remove_prefix`, `remove_suffix`, reassignment) for no benefit. This applies to locals
@@ -331,6 +345,16 @@ substitute for a committed test. Tests use GoogleTest + GoogleMock with these co
   `IsEmpty()` cover size + order + contents in one matcher, instead of an
   `ASSERT_EQ(v.size(), n)` followed by indexed `EXPECT_EQ`s. `ElementsAre` auto-wraps
   each bare element in `Eq`.
+- **Size and emptiness: match the container, never extract then match.** Use
+  `SizeIs` / `IsEmpty` on the container itself, not `.size()` / `.empty()` fed to a
+  scalar matcher or `EXPECT_TRUE` - the matcher form prints the container on failure
+  while the extracted form throws it away. So:
+  - `EXPECT_THAT(v, SizeIs(3))`, not `EXPECT_THAT(v.size(), 3)` / `EXPECT_EQ(v.size(), 3)`.
+  - `SizeIs` composes with a matcher for bounds: `EXPECT_THAT(v, SizeIs(Le(90)))`,
+    not `EXPECT_THAT(v.size(), Le(90))`.
+  - `EXPECT_THAT(v, IsEmpty())` / `EXPECT_THAT(v, Not(IsEmpty()))`, not
+    `EXPECT_TRUE(v.empty())` / `EXPECT_FALSE(v.empty())` (this is the one place a
+    `.empty()` boolean should still become a matcher).
 - **Struct elements**: fold per-field checks into the element matcher with the
   **3-arg, named** `Field("member", &T::member, m)` + `AllOf`, ideally via a small
   `testing::Matcher<T> FooIs(...)` helper, so a mismatch names the field rather than
