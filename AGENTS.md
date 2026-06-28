@@ -143,6 +143,14 @@ If you are an AI agent making changes:
 4. Do not introduce new dependencies without explicit human approval.
 5. Do not silently update version pins in `MODULE.bazel`.
 6. Prefer additive changes. Refactors that touch many files should be split.
+7. Make conservative edits. Prefer `Edit` over `Write` for surgical changes;
+   reserve `Write` for full rewrites and brand-new files. When iterating on a
+   feature, edit the relevant existing section in place rather than appending a
+   new one at the end. Do not create files, add dependencies, or add
+   abstractions or speculative features the design does not call for.
+8. Surface conflicts. When [CARVE_DESIGN.md](CARVE_DESIGN.md) (or another design
+   doc) and the code disagree, surface the conflict in your response rather than
+   silently choosing one.
 
 ## Documents to keep in sync
 
