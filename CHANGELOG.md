@@ -349,3 +349,13 @@ follows [SemVer](https://semver.org/).
   `Language: Json` `RawStringFormats` entry (with `CanonicalDelimiter` so the
   `json` delimiter is preserved). `EqJson` gives semantic equality but does not
   yet validate the compile_commands.json schema (documented follow-up).
+  Follow-up: take `EqJson`'s expected-JSON parameter by value as `std::string_view`
+  (a `MatcherInterface` factory owning a copy, replacing the `MATCHER_P`), and
+  broaden the contract tests to pin number/bool/null typing, `null`-vs-absent-key,
+  empty-vs-non-empty, escaped/Unicode equality, duplicate-key rejection, nested
+  array-order-vs-key-order, and a readable mismatch message.
+- Re-adopt three xff `STYLE_CPP.md` rules into carve's copy (carve-localized):
+  put a trailing comma on every element of a registry-style struct-literal table;
+  a read-only string parameter is `std::string_view` by value (not
+  `const std::string&`); and match size/emptiness on the container with
+  `SizeIs` / `IsEmpty`, never `.size()` / `.empty()` fed to a scalar matcher.
