@@ -17,9 +17,11 @@
 // NOT link scan_deps / the from-source LLVM, so it builds in seconds instead of a
 // full LLVM compile. The Layer C aspect (`cc_carve_aspect`) runs it once per
 // compile action as a build tool, where a per-action LLVM-linked exec tool would
-// be untenable. It never scans headers (the database does not use them; Bazel
-// owns per-action invalidation), so no scanner is injected. Standalone scanning
-// stays in the full `carve shard` binary.
+// be untenable. It injects no scanner; by default it records command + source
+// only and Bazel owns per-action invalidation. When the aspect runs with header
+// recording on, it passes the compiler's `-M` depfile via `--depfile`, and
+// carve_shard records those headers (ASPECT_M) by parsing the make-format file --
+// still no LLVM. Standalone scanning stays in the full `carve shard` binary.
 //
 // The flag surface mirrors `carve shard`; the CLI glue is intentionally
 // duplicated here so this binary carries none of the full binary's dependencies.
@@ -56,6 +58,11 @@ ABSL_FLAG(
     "",
     "Value for __BAZEL_XCODE_DEVELOPER_DIR__; resolved via xcode-select on macOS when empty.");
 ABSL_FLAG(std::string, xcode_sdkroot, "", "Value for __BAZEL_XCODE_SDKROOT__; resolved via xcrun on macOS when empty.");
+ABSL_FLAG(
+    std::string,
+    depfile,
+    "",
+    "Optional make-format `-M` depfile the aspect scheduled; its headers are parsed and recorded as ASPECT_M.");
 
 namespace {
 
@@ -112,8 +119,10 @@ int RealMain(int argc, char** argv) {
       .directory = directory,
       .xcode_developer_dir = xcode_developer_dir,
       .xcode_sdkroot = xcode_sdkroot,
-      // No scanner: this binary links no scan-deps. Records command + source only.
+      // No scanner: this binary links no scan-deps. Headers, when requested, come
+      // from the aspect's `-M` depfile (below), parsed without the scanner.
       .scanner = {},
+      .depfile = absl::GetFlag(FLAGS_depfile),
       // Stamp written_at so aggregate's newest-wins dedup behaves as for `carve shard`.
       .now = [] { return absl::ToUnixSeconds(absl::Now()); },
       .out_path = out,

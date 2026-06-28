@@ -310,6 +310,15 @@ follows [SemVer](https://semver.org/).
   `refresh_test` property test asserts the sidecar carries no absolute paths.
   (IMPLEMENTATION_PLAN.md M2; the full CDB workspace-relative rewrite —
   `directory`=workspace + `//external` symlink — remains a deferred follow-up.)
+- Layer C header recording (M5, opt-in): a `record_headers` parameter on
+  `carve_aspect_refresh` (default off, so shards stay build-free). When set, each
+  shard consumes its compile action's own `.d` dependency file and `carve_shard`
+  parses it (lean, no LLVM) into the exact `#include` set, stored execroot-relative
+  as `source_kind = ASPECT_M`; the make-format parser moved to
+  `command::ParseMakeDependencies` (shared with `scan_deps`). Enabling it builds the
+  TUs (the `.d` is a compile byproduct); re-running the wrapped compiler standalone
+  with `-M` proved unreliable, so the real depfile is reused. Validated end-to-end
+  against an external consumer.
 - Enforce the docs chain (CLAUDE.md -> AGENTS.md -> RULES.md/STYLE_CPP.md): the
   AI-agent checklist now mandates reading RULES.md and STYLE_CPP.md before writing
   C++, so the detailed style (status matchers, `// NL`, idioms) is in the compulsory
