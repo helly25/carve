@@ -319,3 +319,7 @@ follows [SemVer](https://semver.org/).
   TUs (the `.d` is a compile byproduct); re-running the wrapped compiler standalone
   with `-M` proved unreliable, so the real depfile is reused. Validated end-to-end
   against an external consumer.
+- Enforce the docs chain (CLAUDE.md -> AGENTS.md -> RULES.md/STYLE_CPP.md): the
+  AI-agent checklist now mandates reading RULES.md and STYLE_CPP.md before writing
+  C++, so the detailed style (status matchers, `// NL`, idioms) is in the compulsory
+  pre-coding read rather than only cross-referenced from the document map.
