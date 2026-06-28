@@ -40,6 +40,7 @@ using ::mbo::proto::EqualsProto;
 using ::mbo::proto::ParseTextProtoOrDie;
 using ::mbo::testing::IsOk;
 using ::mbo::testing::IsOkAndHolds;
+using ::testing::Not;
 
 // A scanner returning a fixed header set, regardless of input.
 HeaderScanner FixedScanner(std::vector<std::string> headers) {
@@ -229,7 +230,7 @@ TEST(RunShardTest, MissingCommandFileIsAnError) {
   options.source = "a.cc";
   options.out_path = (std::filesystem::path(::testing::TempDir()) / "unused.binpb").string();
 
-  EXPECT_THAT(RunShard(options), ::testing::Not(IsOk()));
+  EXPECT_THAT(RunShard(options), Not(IsOk()));
 }
 
 }  // namespace

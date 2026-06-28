@@ -327,5 +327,8 @@ follows [SemVer](https://semver.org/).
   convention): every test now uses `mbo/testing/status.h` +
   `@helly25_mbo//mbo/testing:status_cc` (`IsOk` / `IsOkAndHolds` / `StatusIs`, plus the
   `MBO_ASSERT_OK_AND_ASSIGN` / `MBO_ASSERT_OK_AND_MOVE_TO` bind macros) instead of
-  Abseil's `::absl_testing::`, which is now disallowed and rejected by a pygrep
-  pre-commit guard. STYLE_CPP.md + RULES.md updated to mandate it.
+  Abseil's `::absl_testing::` (a superset; abseil keeps some features internal).
+  STYLE_CPP.md + RULES.md updated to mandate it. Separately, matchers must be written
+  **unqualified** in `EXPECT_THAT` / `ASSERT_THAT` (no `::testing::` / `::absl_testing::` /
+  `::mbo::testing::` inline; bring them in with a `using`); a pygrep `unqualified-matchers`
+  pre-commit guard enforces this (fixture utilities like `::testing::TempDir` are exempt).

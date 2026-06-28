@@ -298,6 +298,13 @@ substitute for a committed test. Tests use GoogleTest + GoogleMock with these co
   give far better failure messages. The accepted exception is the boolean `EXPECT_TRUE` /
   `EXPECT_FALSE` (and `ASSERT_TRUE` / `ASSERT_FALSE`), which read fine on their own. Within a
   single test keep one style - do not mix, say, `EXPECT_TRUE(x)` and `EXPECT_THAT(y, IsTrue())`.
+- **Name matchers unqualified - never a `::testing::` / `::absl_testing::` / `::mbo::testing::`
+  prefix inline.** Bring each matcher in with a `using ::testing::Foo;` (or
+  `using ::mbo::testing::Foo;`) in the test's anonymous namespace, then write `Foo(...)` in the
+  assertion. A qualified matcher written inline inside an `EXPECT_THAT` / `ASSERT_THAT` is the
+  smell to fix by adding the `using`. Fixture utilities (`::testing::Test`, `::testing::TempDir`)
+  are not matchers and keep their qualification. The `unqualified-matchers` pre-commit guard
+  enforces this.
 - **`Eq` is optional - a readability choice, not a rule.** `EXPECT_THAT(x, value)` auto-wraps a
   bare value in `Eq`, so both forms compile. The value of `EXPECT_THAT` is that the line reads as
   a sentence - `EXPECT_THAT(foo, Eq(25))` is "expect that foo equals 25" - so keep `Eq` where it
@@ -335,9 +342,12 @@ substitute for a committed test. Tests use GoogleTest + GoogleMock with these co
   `MBO_ASSERT_OK_AND_ASSIGN(target, expr)` and `MBO_ASSERT_OK_AND_MOVE_TO(expr, target)`
   (test mirrors of `MBO_ASSIGN_OR_RETURN` / `MBO_MOVE_TO_OR_RETURN`) and `MBO_EXPECT_OK` /
   `MBO_ASSERT_OK`. mbo's set is the helly25-canonical superset: it works on both `Status`
-  and `StatusOr` and adds payload matchers. **Abseil's `::absl_testing::` matchers
-  (`absl/status/status_matchers.h`) are disallowed** and a pre-commit guard rejects them.
-  Prefer **`IsOkAndHolds(m)`** over `IsOk()` followed by dereferencing:
+  and `StatusOr`, adds payload matchers and the bind macros, and forwards the abseil
+  matchers it shares -- features Abseil keeps internal and has not open-sourced. So prefer
+  it; **Abseil's `::absl_testing::` matchers (`absl/status/status_matchers.h`) are not
+  used.** Like all matchers they are written unqualified (see "Assertions"), so an inline
+  `::absl_testing::` is also caught by the `unqualified-matchers` guard. Prefer
+  **`IsOkAndHolds(m)`** over `IsOk()` followed by dereferencing:
   `EXPECT_THAT(Parse(in), IsOkAndHolds(SizeIs(3)))`.
 
 ### Protocol-buffer fixtures and matchers
