@@ -23,10 +23,12 @@ individual shard exactly when that translation unit's *command* changes (a new
 flag, define, or dependency) — the per-action incrementality Layers A/B cannot
 offer (CARVE_DESIGN.md sections 3.1, 4.7). Editing source/header *content* leaves
 the command, and therefore the database entry, unchanged, so no re-shard is
-needed (clangd re-reads the changed files itself). Shards are therefore not
-scanned for headers — `carve_shard` links no scanner at all: the database does
-not use headers, and delegating invalidation to Bazel avoids scanning every TU
-inside a build action.
+needed (clangd re-reads the changed files itself). By default a shard records no
+headers (`carve_shard` links no scanner), and delegating invalidation to Bazel
+avoids touching every TU. The opt-in `record_headers` parameter feeds each shard
+the compile's own dependency file (`-MF .../x.d`) and records the exact #include
+set (ASPECT_M) for a shard-built header index, at the cost of building the TUs
+(whose `.d` files it reuses).
 """
 
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
@@ -82,8 +84,7 @@ def _cc_carve_aspect_impl(target, ctx):
             outputs = action.outputs.to_list()
             primary_output = outputs[0].path if outputs else ""
 
-            # carve_shard takes the shard flags directly (no subcommand) and never
-            # scans (no --scan flag); see the module docstring.
+            # carve_shard takes the shard flags directly (no subcommand).
             args = ctx.actions.args()
             args.add("--action_key", "{} {}".format(target.label, source))
             args.add("--command_file", command_file)
@@ -92,15 +93,30 @@ def _cc_carve_aspect_impl(target, ctx):
             if primary_output:
                 args.add("--primary_output", primary_output)
 
+            # A shard's content is a function of its compile command, so the command
+            # file is its only input by default: Bazel re-runs a shard exactly when
+            # that command changes (a new flag/dep), while header/source *content*
+            # edits leave the command (and the database entry) unchanged.
+            #
+            # With record_headers, the shard also consumes the compile's own
+            # dependency file (`-MF .../x.d` -- the make-format `-M` output Bazel
+            # already generates for include validation). Declaring it as an input
+            # makes Bazel run the compile, and carve_shard parses it for the exact
+            # #include set (ASPECT_M). That couples the shard to building its TU --
+            # negating the build-free property -- so it is opt-in (default off).
+            # (Re-running the compiler standalone with `-M` is unreliable: the driver
+            # is often a wrapper and already carries its own `-MD/-MF`.)
+            shard_inputs = [command_file]
+            if ctx.attr.record_headers:
+                depfiles = [out for out in action.outputs.to_list() if out.extension == "d"]
+                if depfiles:
+                    args.add("--depfile", depfiles[0])
+                    shard_inputs.append(depfiles[0])
+
             ctx.actions.run(
                 executable = ctx.executable._carve_shard,
                 arguments = [args],
-                # The shard records the (de-Bazeled) command + source; its content
-                # depends only on `command_file`, so that is the sole input. Bazel
-                # re-runs this shard exactly when the compile command changes (a new
-                # flag/dep) — header/source *content* edits leave the command (and
-                # thus the database entry) unchanged, so no re-shard is needed.
-                inputs = depset([command_file]),
+                inputs = depset(shard_inputs),
                 outputs = [shard],
                 mnemonic = "CarveShard",
                 progress_message = "Carving shard for %s" % source,
@@ -127,7 +143,8 @@ cc_carve_aspect = aspect(
             cfg = "exec",
             doc = "The lean carve_shard tool, run once per compile action to produce a shard.",
         ),
-        # Parameter: supplied by the propagating rule's same-named attribute.
+        # Parameters: supplied by the propagating rule's same-named attributes.
         "exclude_external_sources": attr.bool(default = True),
+        "record_headers": attr.bool(default = False),
     },
 )

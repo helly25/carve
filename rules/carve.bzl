@@ -147,6 +147,14 @@ per-action build-cache incrementality (CARVE_DESIGN.md section 4.7).""",
                   "first-party entries' -I flags, so they need no entries of their own. " +
                   "Set False to shard the full transitive graph.",
         ),
+        "record_headers": attr.bool(
+            default = False,
+            doc = "Record each compile action's header dependencies in its shard " +
+                  "(source_kind ASPECT_M), for a shard-built header index. When set, each " +
+                  "shard consumes the compile's own `.d` dependency file for the exact " +
+                  "#include set -- coupling sharding to building every TU, so the default " +
+                  "(False) keeps shards build-free.",
+        ),
         "carve": attr.label(
             default = Label("//carve:carve_aggregate"),
             executable = True,

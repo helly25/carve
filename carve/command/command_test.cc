@@ -143,5 +143,27 @@ TEST(RelativizeToExecrootTest, EmptyExecrootIsANoOp) {
   EXPECT_EQ(RelativizeToExecroot("/cache/execroot/_main/x.h", ""), "/cache/execroot/_main/x.h");
 }
 
+TEST(ParseMakeDependenciesTest, SplitsDepsAfterTheColon) {
+  EXPECT_THAT(
+      ParseMakeDependencies("bazel-out/a.o: src/a.cc include/a.h include/b.h"),
+      ElementsAre("src/a.cc", "include/a.h", "include/b.h"));
+}
+
+TEST(ParseMakeDependenciesTest, HandlesLineContinuations) {
+  EXPECT_THAT(ParseMakeDependencies("a.o: a.cc \\\n  b.h \\\n  c.h\n"), ElementsAre("a.cc", "b.h", "c.h"));
+}
+
+TEST(ParseMakeDependenciesTest, UnescapesSpacesInPaths) {
+  EXPECT_THAT(ParseMakeDependencies("a.o: dir\\ with\\ spaces/a.h"), ElementsAre("dir with spaces/a.h"));
+}
+
+TEST(ParseMakeDependenciesTest, WithoutAColonTreatsTheWholeInputAsDeps) {
+  EXPECT_THAT(ParseMakeDependencies("a.cc b.h"), ElementsAre("a.cc", "b.h"));
+}
+
+TEST(ParseMakeDependenciesTest, EmptyYieldsNoDeps) {
+  EXPECT_THAT(ParseMakeDependencies(""), IsEmpty());
+}
+
 }  // namespace
 }  // namespace carve::command

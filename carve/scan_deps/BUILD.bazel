@@ -31,6 +31,7 @@ cc_library(
     srcs = ["scan_deps.cc"],
     hdrs = ["scan_deps.h"],
     implementation_deps = [
+        "//carve/command:command_cc",  # ParseMakeDependencies (make-format depfile parser).
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         # Clang dependency-scanning libraries, built from source via the

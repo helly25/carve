@@ -70,6 +70,18 @@ ActionRecords BuildShard(const Options& options) {
     }
   }
 
+  // Layer C `ASPECT_M`: record headers parsed from the aspect-scheduled `-M`
+  // depfile. The lean carve_shard does not scan; the aspect supplies the
+  // dependency set (complete -- the `-M` action either produced the depfile or
+  // failed the build), so the row is stamped like a complete scan. Stored
+  // execroot-relative so shards stay host-independent (CARVE_DESIGN.md section 9).
+  if (!options.dep_headers.empty()) {
+    for (const std::string& header : options.dep_headers) {
+      record.add_headers(command::RelativizeToExecroot(header, options.directory));
+    }
+    record.set_source_kind(ActionRecord::ASPECT_M);
+  }
+
   if (options.now && scan_complete) {
     record.set_written_at(options.now());
   }
@@ -85,6 +97,13 @@ absl::Status RunShard(const FileOptions& options) {
     command.emplace_back(token);
   }
 
+  // ASPECT_M: parse the aspect-scheduled `-M` depfile into the header set.
+  std::vector<std::string> dep_headers;
+  if (!options.depfile.empty()) {
+    MBO_ASSIGN_OR_RETURN(const std::string depfile_contents, io::ReadFile(options.depfile));
+    dep_headers = command::ParseMakeDependencies(depfile_contents);
+  }
+
   const ActionRecords shard = BuildShard(
       Options{
           .action_key = options.action_key,
@@ -96,6 +115,7 @@ absl::Status RunShard(const FileOptions& options) {
           .xcode_developer_dir = options.xcode_developer_dir,
           .xcode_sdkroot = options.xcode_sdkroot,
           .scanner = options.scanner,
+          .dep_headers = std::move(dep_headers),
           .now = options.now,
       });
   return sidecar::Save(options.out_path, shard);
