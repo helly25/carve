@@ -66,3 +66,20 @@ repos:
         language: pygrep
         # Enforced on code/config, not Markdown prose that documents the rule.
         exclude: '(\.md$|^\.pre-commit-config\.yaml$)'
+
+      - id: unqualified-matchers
+        name: 'matchers in EXPECT_THAT/ASSERT_THAT must be unqualified'
+        # House convention (STYLE_CPP.md "Assertions"): bring each matcher in with a
+        # `using ::testing::Foo;` / `using ::mbo::testing::Foo;` in the test's
+        # anonymous namespace; a qualified matcher (::testing:: / ::absl_testing:: /
+        # ::mbo::testing::) written inline in an assertion is the smell to fix.
+        # Multiline so it catches the matcher even on a `// NL` continuation line;
+        # scoped to EXPECT_THAT/ASSERT_THAT (so fixture utilities outside an
+        # assertion keep their qualification). `::testing::TempDir` is a utility, not
+        # a matcher -- it often builds a path inside the assertion's value argument --
+        # so it is exempted via the negative lookahead. The `::(absl_)?testing::` arm
+        # also matches the `::testing::` inside `::mbo::testing::`.
+        entry: '(EXPECT_THAT|ASSERT_THAT)\([^;]*::(absl_)?testing::(?!TempDir\b)'
+        language: pygrep
+        args: [--multiline]
+        types_or: [c++]

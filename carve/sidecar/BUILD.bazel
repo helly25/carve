@@ -57,9 +57,9 @@ cc_test(
     deps = [
         ":carve_cc_proto",
         ":sidecar_cc",
-        "@abseil-cpp//absl/status:status_matchers",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+        "@helly25_mbo//mbo/testing:status_cc",
         "@helly25_proto//mbo/proto:matchers_cc",
         "@helly25_proto//mbo/proto:parse_text_proto_cc",
     ],

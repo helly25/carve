@@ -58,8 +58,8 @@ cc_test(
     deps = [
         ":scan_deps_cc",
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/status:status_matchers",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+        "@helly25_mbo//mbo/testing:status_cc",
     ],
 )

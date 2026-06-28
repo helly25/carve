@@ -25,7 +25,6 @@
 
 #include "absl/log/check.h"
 #include "absl/status/status.h"
-#include "absl/status/status_matchers.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
@@ -38,15 +37,16 @@
 #include "gtest/gtest.h"
 #include "mbo/proto/matchers.h"
 #include "mbo/proto/parse_text_proto.h"
+#include "mbo/testing/status.h"
 
 namespace carve::refresh {
 namespace {
 
-using ::absl_testing::IsOk;
-using ::absl_testing::IsOkAndHolds;
-using ::absl_testing::StatusIs;
 using ::mbo::proto::EqualsProto;
 using ::mbo::proto::ParseTextProtoOrDie;
+using ::mbo::testing::IsOk;
+using ::mbo::testing::IsOkAndHolds;
+using ::mbo::testing::StatusIs;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 using ::testing::Eq;

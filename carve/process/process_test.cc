@@ -19,15 +19,15 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "absl/status/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "mbo/testing/status.h"
 
 namespace carve::process {
 namespace {
 
-using ::absl_testing::IsOkAndHolds;
-using ::absl_testing::StatusIs;
+using ::mbo::testing::IsOkAndHolds;
+using ::mbo::testing::StatusIs;
 using ::testing::AllOf;
 using ::testing::Eq;
 using ::testing::Field;

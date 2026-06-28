@@ -40,9 +40,9 @@ cc_test(
     deps = [
         ":aquery_cc",
         "//carve/third_party/bazel:analysis_v2_cc_proto",
-        "@abseil-cpp//absl/status:status_matchers",
         "@abseil-cpp//absl/status:statusor",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+        "@helly25_mbo//mbo/testing:status_cc",
     ],
 )

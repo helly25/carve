@@ -27,18 +27,18 @@
 #include <string_view>
 #include <vector>
 
-#include "absl/status/status_matchers.h"
 #include "carve/process/process.h"
 #include "carve/third_party/bazel/analysis_v2.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "mbo/testing/status.h"
 #include "tools/cpp/runfiles/runfiles.h"
 
 namespace carve {
 namespace {
 
-using ::absl_testing::IsOkAndHolds;
 using ::bazel::tools::cpp::runfiles::Runfiles;
+using ::mbo::testing::IsOkAndHolds;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
