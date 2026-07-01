@@ -3,11 +3,11 @@
 Tracks behavior verified manually (one-shot) but not yet covered by a committed
 test. Per [AGENTS.md](../AGENTS.md#testing-discipline), an entry here is a debt:
 it names the test that must replace the manual check. An empty ledger is the
-goal — a growing one is a smell.
+goal - a growing one is a smell.
 
 | Behavior verified by hand                                                          | How verified | Test that must replace it | Status |
 | ---------------------------------------------------------------------------------- | ------------ | ------------------------- | ------ |
-| _(empty — every previously-dogfooded behavior is now covered by a committed test)_ |              |                           |        |
+| _(empty - every previously-dogfooded behavior is now covered by a committed test)_ |              |                           |        |
 
 Resolved:
 - `carve` exit-code mapping (missing/unknown subcommand → 2, failed refresh → 1)

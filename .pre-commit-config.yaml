@@ -60,6 +60,12 @@ repos:
         language: pygrep
         exclude: ^\.pre-commit-config\.yaml$
 
+      - id: no-em-dashes
+        name: 'no em-dashes (use spaced hyphens)'
+        entry: '—'
+        language: pygrep
+        exclude: ^\.pre-commit-config\.yaml$
+
       - id: todos-need-context
         name: TODO/FIXME must cite an issue URL or email
         entry: '(TODO|FIXME)(?!.*(https?://|[A-Za-z0-9._%+-]+@))'

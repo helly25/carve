@@ -27,10 +27,10 @@ clangd --check=<execroot>/carve/cdb/cdb.cc --compile-commands-dir=<out>
 - The preamble, AST, and index all build with **zero compilation diagnostics**.
 - The "8 errors" are clangd `--check`'s per-token *tweak* probes
   (`ExtractFunction ==> FAIL: Cannot extract break/continue ...`), not problems
-  with the source or the command — they fire at every `break`/`continue` token
+  with the source or the command - they fire at every `break`/`continue` token
   regardless of the CDB.
 
-**Finding — use a toolchain-matched clangd.** clangd injects a `-resource-dir`
+**Finding - use a toolchain-matched clangd.** clangd injects a `-resource-dir`
 and resolves the sysroot from the compiler named in the command. With a clangd
 that matches the build toolchain (clang 22.1.7, the one the hermetic `llvm`
 module ships), it uses the hermetic clang builtins + the from-source libc++ named
@@ -56,7 +56,7 @@ left unstamped so a later refresh re-scans them once the headers are generated.
 Building first (`bazel build //carve/...`) and re-refreshing resolves them. This
 is a property of any scan-deps extractor, not a carve regression.
 
-## 3. carve vs Hedron — explained differences
+## 3. carve vs Hedron - explained differences
 
 carve is a clean-slate replacement for Hedron's
 `bazel-compile-commands-extractor`; it deliberately diverges in several places.

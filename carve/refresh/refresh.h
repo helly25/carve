@@ -38,7 +38,7 @@ namespace carve::refresh {
 //
 // MUST be safe to call concurrently from multiple threads: `refresh` scans
 // actions in parallel (see `FileOptions::jobs`). `scan_deps::ScanDependencies`
-// qualifies — it builds its own dependency-scanning service per call.
+// qualifies - it builds its own dependency-scanning service per call.
 using HeaderScanner = std::function<
     absl::StatusOr<std::vector<std::string>>(absl::Span<const std::string> argv, std::string_view directory)>;
 
@@ -101,8 +101,8 @@ struct RefreshStats {
                        // left unstamped so the next refresh re-scans them.
 };
 
-// Obtains the aquery proto — by reading `aquery_proto_path` if set, otherwise by
-// running `bazel aquery` over `targets` — builds the current action records,
+// Obtains the aquery proto - by reading `aquery_proto_path` if set, otherwise by
+// running `bazel aquery` over `targets` - builds the current action records,
 // and (when `sidecar_path` is set) merges them against the stored sidecar
 // (reusing cached records for unchanged actions, scoped to `project_id`), writes
 // the sidecar back, and emits the compilation database from the merged set.

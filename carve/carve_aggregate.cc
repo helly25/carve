@@ -18,7 +18,7 @@
 // neither scan_deps nor the from-source LLVM (merging proto records needs no
 // compiler). The Layer C launcher (`carve_aspect_refresh`) runs it once to fold
 // the per-action shards into `compile_commands.json`, so `bazel run` of a Layer C
-// refresh — and the aspect's `build_test` — never trigger a full LLVM build.
+// refresh - and the aspect's `build_test` - never trigger a full LLVM build.
 // Standalone aggregation also stays in the full `carve aggregate` binary.
 //
 // The flag surface mirrors `carve aggregate` (the CLI glue is duplicated so this
