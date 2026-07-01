@@ -26,8 +26,8 @@
 namespace carve::aggregate {
 
 // Combines records from several independently-produced sidecars into one set.
-// Records are de-duplicated by (project_id, action_key) — the natural identity
-// of an action across shards — keeping the most-recently-written record on a
+// Records are de-duplicated by (project_id, action_key) - the natural identity
+// of an action across shards - keeping the most-recently-written record on a
 // collision (highest `written_at`; an unstamped `written_at == 0` therefore
 // loses to any stamped record). The result is sorted by (project_id,
 // action_key) for determinism, and `schema_version` is taken from the first

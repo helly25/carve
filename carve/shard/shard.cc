@@ -91,7 +91,7 @@ ActionRecords BuildShard(const Options& options) {
 absl::Status RunShard(const FileOptions& options) {
   MBO_ASSIGN_OR_RETURN(const std::string contents, io::ReadFile(options.command_file));
   // Multiline param-file format: one argv token per line. Empty lines (a trailing
-  // newline, or blank entries) are skipped — compiler args are never empty.
+  // newline, or blank entries) are skipped - compiler args are never empty.
   std::vector<std::string> command;
   for (const std::string_view token : absl::StrSplit(contents, '\n', absl::SkipEmpty())) {
     command.emplace_back(token);

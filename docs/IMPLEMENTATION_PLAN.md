@@ -36,29 +36,29 @@ reuse cached headers; editing a header re-scans only its owning actions;
 unresolved (unbuilt generated) headers are not cached and are retried;
 `written_at` and the persisted `HeaderIndex` are in place; scanning is
 parallelized (`--jobs`). **M1–M5 are complete**, plus the `prune`, `aggregate`,
-and `shard` subcommands — all four CLI subcommands are wired and tested. All three
+and `shard` subcommands - all four CLI subcommands are wired and tested. All three
 layers work: `refresh` (A), `carve_refresh` (B, `bazel run //:refresh`), and the
 Layer C aspect (`cc_carve_aspect` + `carve_aspect_refresh`) that emits one
 cacheable shard per compile action and aggregates them. **Next: M6 (release +
-distribution) — the last milestone.**
+distribution) - the last milestone.**
 
 ## Milestones (dependency-ordered)
 
-### M1 — Wire scan-deps into `refresh` (the keystone)
+### M1 - Wire scan-deps into `refresh` (the keystone)
 Realizes incremental refresh and header coverage; everything downstream assumes it.
 
 - ✅ For each compile action, call `scan_deps::ScanDependencies(argv, execroot)`; store results in `ActionRecord.headers`. (#9)
 - ✅ Reuse on unchanged actions: `MergeRecords` keeps cached headers, and `refresh` re-scans only added/changed actions (`HasMatchingRecord`). (#10)
-- ✅ Set `ActionRecord.written_at` via an injected clock (deterministic in tests) — unblocks `prune`. (#11)
+- ✅ Set `ActionRecord.written_at` via an injected clock (deterministic in tests) - unblocks `prune`. (#11)
 - ✅ Build and persist the `HeaderIndex` (header → owning `action_key`s, canonical owner = lex-min) next to the sidecar so an edited header maps to the action(s) to re-scan (design §4.4–§4.5).
 - ✅ Header-staleness invalidation: on refresh, an action whose cached header (or source) changed on disk (mtime past `written_at`) is re-scanned even though its command is unchanged, via `FindReusableRecord` + a `rescanned` set passed to `MergeRecords`. One-second granularity.
 - ✅ Missing generated headers: a failed scan leaves the record unstamped so the next refresh re-scans it (cache only a complete scan, design §4.2); `RunRefresh` returns `RefreshStats` and the binary surfaces an unresolved-headers count.
 - ✅ Parallelize scanning across actions (`--jobs`, default hardware concurrency): an `absl::Mutex`-guarded worker pool (fully thread-safety-annotated, enforced by `-Wthread-safety`). The scan decision stays serial so the sidecar is deterministic. (Runtime tsan CI is blocked by the hermetic `llvm` toolchain's sanitizer-runtime build; the `.bazelrc` `:tsan` flag is documented + commented out for when it's fixed.)
-- ✅ **Platform/optionality decision — resolved (option b).** `scan_deps` is gated linux+macos and injected into `refresh` as a `HeaderScanner`, so the core CDB still builds everywhere and header-scanning is the enhancement; the gate propagates to the `carve` binary and e2e test.
+- ✅ **Platform/optionality decision - resolved (option b).** `scan_deps` is gated linux+macos and injected into `refresh` as a `HeaderScanner`, so the core CDB still builds everywhere and header-scanning is the enhancement; the gate propagates to the `carve` binary and e2e test.
 
 Acceptance: `carve refresh` on this repo populates `headers`; editing a header invalidates only owning actions; refresh stays idempotent; unit + e2e tests cover header population, reuse, and missing-header caching.
 
-### M2 — Complete the de-Bazel quirk inventory (CARVE_DESIGN §4.3)
+### M2 - Complete the de-Bazel quirk inventory (CARVE_DESIGN §4.3)
 Independent of M1; can run in parallel. One golden test per quirk (design §9.2).
 
 Done (golden-tested in `carve/command`, wired through `refresh`):
@@ -74,12 +74,12 @@ Done (golden-tested in `carve/command`, wired through `refresh`):
   `command::RelativizeToExecroot` rewrites them execroot-relative at storage
   (`refresh::ScanHeaders`, `shard::BuildShard`), and `CachedScanIsStale` resolves
   them back against the execroot to stat. The sidecar and header index now hold
-  **zero** absolute paths (verified end-to-end on this repo: ~15k → 0) — so they are
+  **zero** absolute paths (verified end-to-end on this repo: ~15k → 0) - so they are
   byte-identical across machines and remote-cache-shareable. The CDB `file` is also
   emitted execroot-relative (clangd resolves it against `directory`=execroot, the
   same path as before). A property test asserts the sidecar has no absolute paths.
 
-Remaining (deferred — niche toolchains or a design-level property; best validated against M3's corpus):
+Remaining (deferred - niche toolchains or a design-level property; best validated against M3's corpus):
 - ⬜ Full *CDB* workspace-relative rewriting (`directory`=workspace root + the
   `//external` symlink choreography, §10) so the emitted database is itself
   relocatable. The CDB stays execroot-rooted until then (clangd consumes it
@@ -88,14 +88,14 @@ Remaining (deferred — niche toolchains or a design-level property; best valida
 
 Acceptance: golden test per quirk; platform-specific ones skipped where the toolchain is absent.
 
-### M3 — Differential harness + clangd validation ✅
+### M3 - Differential harness + clangd validation ✅
 Correctness gate before building Layer B/C on top.
 
 - ✅ `tools/cdb_diff.py`: a normalizing CDB differ (keys by workspace-relative source, ignores volatile output/dep/seed tokens), with a `--selftest` in CI. Diffs carve's CDB against any reference (e.g. a Hedron CDB).
 - ✅ clangd verified working on carve itself: `clangd --check` builds the preamble/AST/index with zero compilation diagnostics using a toolchain-matched clang 22 (`docs/differential-report.md`).
-- ✅ carve-vs-Hedron differences explained in the report (scan-deps vs `clang -M`, sidecar incrementality, header index, execroot-absolute vs workspace-relative paths). A live Hedron diff just needs a Hedron CDB pointed at `cdb_diff.py`; Hedron is intentionally not wired into carve (the tool it replaces) — a corpus run over external repos remains as optional follow-up.
+- ✅ carve-vs-Hedron differences explained in the report (scan-deps vs `clang -M`, sidecar incrementality, header index, execroot-absolute vs workspace-relative paths). A live Hedron diff just needs a Hedron CDB pointed at `cdb_diff.py`; Hedron is intentionally not wired into carve (the tool it replaces) - a corpus run over external repos remains as optional follow-up.
 
-### M4 — Layer B: `carve_refresh` rule ✅
+### M4 - Layer B: `carve_refresh` rule ✅
 `bazel run //:refresh` as the CDB entry point (design §4.6).
 
 - ✅ **Nested-bazel concern resolved: a `bazel run` target, not a build action.** carve invokes `bazel aquery`/`bazel info`; spawning bazel inside a build action is the nested-bazel trap (lock/server contention, sandboxing). `carve_refresh` (`rules/carve.bzl`) generates a runfiles-aware launcher that runs the carve binary *after* the outer build and writes the CDB to `$BUILD_WORKSPACE_DIRECTORY`.
@@ -103,39 +103,39 @@ Correctness gate before building Layer B/C on top.
 
 (The design's literal `bazel build //:compile_commands` shape is not viable for the reason above; the README/usage now shows `bazel run //:refresh`.)
 
-### M5 — Layer C: aspect + shards
+### M5 - Layer C: aspect + shards
 Per-action, individually-cacheable shards for huge repos (design §4.7).
 
-- ✅ `aggregate` subcommand (`carve/aggregate`): the offline merge half — unions
+- ✅ `aggregate` subcommand (`carve/aggregate`): the offline merge half - unions
   independently-produced sidecars (de-dup by (project_id, action_key), keep
   most-recently-written, deterministic order) and emits one CDB without running
   `bazel aquery`. Shares `refresh::EntriesFromRecords`.
 - ✅ `shard` subcommand (`carve/shard`): the per-action invocation the aspect
-  schedules — `carve shard --action_key=… --command_file=… --source=… --out=…`
+  schedules - `carve shard --action_key=… --command_file=… --source=… --out=…`
   de-Bazels the command, resolves Xcode placeholders, scans headers (failed scan
   → unstamped, re-scanned later), and writes a one-record shard whose shape
   matches `refresh`. Verified end-to-end: `shard` → `aggregate` → valid CDB.
 - ✅ The emitting aspect (`rules/cc_carve_aspect.bzl`): `cc_carve_aspect` walks
   the cc graph and schedules one cacheable `carve_shard` build action per compile
   action, reading the fully-expanded command from `action.argv` (no `@param-file`
-  indirection — Bazel expands it). Shards land in the `carve_shards` output group.
+  indirection - Bazel expands it). Shards land in the `carve_shards` output group.
   `carve_aspect_refresh` (`rules/carve.bzl`) is the `bazel run` driver: it builds
   the shards, then aggregates them against the real execroot.
 - ✅ Per-action invalidation via Bazel: a shard's content is a function of its
   compile command, so the shard action's only input is its `command_file`. Bazel
   re-runs only the shards whose command changed; content edits don't re-shard
-  (the entry is unchanged). Shards are not header-scanned — the lean `carve_shard`
+  (the entry is unchanged). Shards are not header-scanned - the lean `carve_shard`
   tool links no scanner; the database does not use headers and Bazel owns
   invalidation. Validated in CI by an analysis test (the wiring) and a `build_test`
   that builds the whole Layer C path with the lean tools (no LLVM build).
 
 Acceptance: aspect emits shards (done); `carve aggregate` merges them (done);
-a compile-command change re-shards only the affected action (done — via Bazel's
+a compile-command change re-shards only the affected action (done - via Bazel's
 action cache on `command_file`). **M5 complete.**
 
 - ✅ **Lean, LLVM-free Layer C tools:** the aspect's per-action exec tool is the
   scan-free `//carve:carve_shard`, and `carve_aspect_refresh`'s merge tool is
-  `//carve:carve_aggregate`. Neither links `scan_deps`/LLVM — sharding records the
+  `//carve:carve_aggregate`. Neither links `scan_deps`/LLVM - sharding records the
   command, aggregation merges protos, and neither needs a compiler. Building the
   whole Layer C path is now LLVM-free (≈seconds, not the tens-of-minutes exec-config
   LLVM build the full `carve` required), so the `build_test` rejoined CI.
@@ -160,7 +160,7 @@ action cache on `command_file`). **M5 complete.**
 Deferred Layer C refinements (follow-ups, not blockers): building a `HeaderIndex`
 from the recorded shard headers in `aggregate` (the shards now carry them).
 
-### M6 — 0.1 release + distribution
+### M6 - 0.1 release + distribution
 `.bcr/` metadata, release automation, prebuilt binaries for common platforms (design §7); decide Windows in-or-out.
 
 - ✅ Release scaffolding (source-only, mirrors the helly25 house pattern): `.bcr/`
@@ -199,7 +199,7 @@ from the recorded shard headers in `aggregate` (the shards now carry them).
   libc++/libc++abi/libunwind from the `@llvm-project` source on every platform would
   make the build fully hermetic + the ABI safety airtight. hermetic-llvm's `osx`
   extension has no from-source-libc++ knob, so this means forking/extending the
-  toolchain module + heavy rebuilds — a significant effort, deferred until there is
+  toolchain module + heavy rebuilds - a significant effort, deferred until there is
   a concrete need.
 
 Acceptance: a bzlmod consumer can `bazel_dep(name = "helly25_carve")` and get a working CDB; tagged release.
@@ -210,10 +210,10 @@ Acceptance: a bzlmod consumer can `bazel_dep(name = "helly25_carve")` and get a 
   sidecars into one CDB offline. ✅ `shard` subcommand (`carve/shard`): builds one
   per-action shard. ✅ `cc_carve_aspect` + `carve_aspect_refresh` (Layer C): the
   aspect schedules `shard` per compile action and aggregates the shards.
-- Parallel scan-deps (`--jobs`) — fold into M1.
-- Property tests: ✅ cross-host determinism — `refresh_test` asserts the sidecar holds no absolute paths after a refresh whose scanner returns execroot-absolute headers (M2 canonicalization). Idempotency (refresh twice → identical sidecar) still to be codified beyond the dogfood check.
+- Parallel scan-deps (`--jobs`) - fold into M1.
+- Property tests: ✅ cross-host determinism - `refresh_test` asserts the sidecar holds no absolute paths after a refresh whose scanner returns execroot-absolute headers (M2 canonicalization). Idempotency (refresh twice → identical sidecar) still to be codified beyond the dogfood check.
 - Keep [docs/test-plan.md](test-plan.md) at zero open debts.
-- Latency reality: Layers A/B re-run `bazel aquery` every refresh (design §3.1); sub-second incrementality on huge repos is a Layer C (M5) property — don't over-promise before then.
+- Latency reality: Layers A/B re-run `bazel aquery` every refresh (design §3.1); sub-second incrementality on huge repos is a Layer C (M5) property - don't over-promise before then.
 
 ## Sequencing rationale
-M1 first — it converts the working skeleton into the actual product (incrementality + headers). M2 runs alongside (independent). M3 validates correctness before B/C are layered on. M4 → M5 (B before C, per the design's layering). Release (M6) last. Riskiest dependency (LLVM linkage) and toolchain are already done.
+M1 first - it converts the working skeleton into the actual product (incrementality + headers). M2 runs alongside (independent). M3 validates correctness before B/C are layered on. M4 → M5 (B before C, per the design's layering). Release (M6) last. Riskiest dependency (LLVM linkage) and toolchain are already done.

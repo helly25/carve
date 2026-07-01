@@ -37,7 +37,7 @@ file is corrected.
 
 - **One module per directory:** `carve/<module>/`, self-contained.
 - **Namespaces:** `carve::<module>`. Internal-only code lives in
-  `carve::<module>::<module>_internal` — never a bare `internal` namespace.
+  `carve::<module>::<module>_internal` - never a bare `internal` namespace.
   Implementation detail may use a nested `detail` namespace.
 - **Header guards:** `CARVE_<PATH>_<FILE>_` (path + filename, upper-snake,
   non-alphanumerics to `_`, trailing `_`). Example:
@@ -76,12 +76,12 @@ file is corrected.
 ## Tests
 
 - GTest, colocated with the unit. Every change is covered by a committed test at
-  the appropriate level — see the testing-discipline section in
+  the appropriate level - see the testing-discipline section in
   [AGENTS.md](AGENTS.md#testing-discipline). No exemption category.
 - **Assert with matchers.** Prefer `EXPECT_THAT(actual, matcher)` over
   `EXPECT_EQ`/`EXPECT_NE`. Use the expressive matcher, not a hand-rolled
   predicate:
-  - substring: `EXPECT_THAT(text, HasSubstr("x"))` — never
+  - substring: `EXPECT_THAT(text, HasSubstr("x"))` - never
     `EXPECT_NE(text.find("x"), npos)`.
   - equality: `Eq(...)` / `StrEq(...)`; containers: `ElementsAre`, `IsEmpty`,
     `SizeIs`; structs: `Field(&T::member, matcher)` with `AllOf` for several.

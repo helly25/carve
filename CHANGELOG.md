@@ -84,11 +84,11 @@ follows [SemVer](https://semver.org/).
   CDB plus the exit-code contract (missing/unknown subcommand => 2, failed
   refresh => 1). A fake-`bazel` stub also covers the in-process `--targets`
   path hermetically. `docs/test-plan.md` is now empty of open debts.
-- CI: `.github/workflows/main.yml` — pre-commit job, `bazel test --config=clang
+- CI: `.github/workflows/main.yml` - pre-commit job, `bazel test --config=clang
   //...` on ubuntu + macOS, and an aggregating `done` gate. Add pre-commit
   hooks for managed buildifier and actionlint (workflows are actionlint-clean).
 - Bump the toolchain to LLVM 22.1.7 (via a `toolchains_llvm` local override on
-  the released 1.7.0 — shas from its `toolchain/distributions/github.jsonc`),
+  the released 1.7.0 - shas from its `toolchain/distributions/github.jsonc`),
   whose headers are C++23-clean (no more `std::aligned_union_t`), so no
   deprecation suppression is needed. macOS-x86_64 omitted (no upstream build).
 - **scan-deps (resolves the §4.2 linkage risk):** `carve/scan_deps` runs
@@ -101,7 +101,7 @@ follows [SemVer](https://semver.org/).
   `-fno-rtti` for the `scan_deps` subtree to match LLVM's no-RTTI build.
 - Single LLVM source: drop the separate libs `http_archive` and link scan-deps
   against `clang_cpp` (libclang-cpp + headers) exposed by the toolchain's own
-  distribution repo — one download, guaranteed ABI match. The `clang_cpp`
+  distribution repo - one download, guaranteed ABI match. The `clang_cpp`
   target is added to `toolchains_llvm`'s `BUILD.llvm_repo.tpl` (pending upstream)
   and consumed via a `local_path_override` to the sibling checkout until a
   release ships it. Bump LLVM 22.1.7 -> 22.1.8 and helly25_mbo 0.10.0 -> 0.11.1.
@@ -113,9 +113,9 @@ follows [SemVer](https://semver.org/).
   BCR module, LLVM 22.1.7): drop `toolchains_llvm`, the `clang_cpp` fork target,
   and the `local_path_override`. `carve/scan_deps` now links
   `@llvm-project//clang:tooling` built from source with the same libc++ as our
-  C++23 code — no shared-library ABI boundary and no libstdc++-on-Linux coupling.
+  C++23 code - no shared-library ABI boundary and no libstdc++-on-Linux coupling.
   LLVM's own sources build at C++17 (scoped in `.bazelrc`); ours stay C++23.
-- `carve/scan_deps` is no longer gated to darwin-arm64 — enabled on macOS and
+- `carve/scan_deps` is no longer gated to darwin-arm64 - enabled on macOS and
   Linux, built and tested under the hermetic toolchain in CI.
 - Remove the orphaned `third_party/llvm/` overlay (the obsolete prebuilt-libs
   BUILD overlay) and correct the now-stale `--config=clang` comment in
@@ -183,7 +183,7 @@ follows [SemVer](https://semver.org/).
   missing-generated-header guard observed on a clean tree; carve-vs-Hedron
   differences explained).
 - M4 Layer B: the `carve_refresh` rule (`rules/carve.bzl`) and a `//:refresh`
-  entry point — `bazel run //:refresh` writes `compile_commands.json` to the
+  entry point - `bazel run //:refresh` writes `compile_commands.json` to the
   workspace root. It is a `bazel run` target, not a build action (carve runs
   `bazel aquery`; nesting bazel in an action is the trap). Dogfooded;
   analysis-tested.
@@ -201,7 +201,7 @@ follows [SemVer](https://semver.org/).
   to `carve/refresh`'s public API). Unit-tested; de-stubs the `aggregate` CLI
   command (the per-action aspect that emits the shards remains M5/Layer C).
 - `shard` subcommand (`carve/shard`): `carve shard --action_key=... --command_file=...
-  --source=... --out=...` builds the one-record shard for a single compile action —
+  --source=... --out=...` builds the one-record shard for a single compile action -
   the per-action invocation the Layer C aspect schedules (CARVE_DESIGN §4.7). It
   de-Bazels the command, resolves Apple `wrapped_clang` placeholders, scans headers
   via the injected scanner (a failed scan records none and leaves the row unstamped
@@ -211,14 +211,14 @@ follows [SemVer](https://semver.org/).
   command. The emitting Starlark aspect (the remaining half of Layer C) is next.
 - M5 Layer C: the emitting aspect (`rules/cc_carve_aspect.bzl`) and
   `carve_aspect_refresh` (`rules/carve.bzl`). `cc_carve_aspect` walks the cc graph
-  and schedules one cacheable `carve shard` build action per compile action —
+  and schedules one cacheable `carve shard` build action per compile action -
   reading the fully-expanded command straight from `action.argv` (Bazel already
-  expands param files) — collected in the `carve_shards` output group.
+  expands param files) - collected in the `carve_shards` output group.
   `carve_aspect_refresh` is a `bazel run` target that builds those shards, then
   aggregates them into `compile_commands.json` against the real execroot. A
   shard's content is a function of its compile command alone, so its one input is
   the `command_file`: Bazel re-runs only the shards whose command changed (a new
-  flag/define/dep) — the per-action incrementality Layers A/B cannot offer
+  flag/define/dep) - the per-action incrementality Layers A/B cannot offer
   (CARVE_DESIGN §4.7). Editing source/header *content* leaves the command (and the
   database entry) unchanged, so no re-shard is needed. Shards are therefore not
   header-scanned (`carve shard --scan=false`): the database does not use headers,
@@ -227,7 +227,7 @@ follows [SemVer](https://semver.org/).
   graph cleanly; `shard` -> `aggregate` yields a valid CDB. CI runs an analysis test
   for the wiring; a `manual` `build_test` actually builds a shard on demand (it is
   not in the default suite because the aspect's `carve shard` tool needs an
-  exec-config carve = a full from-source LLVM build, too costly per CI run — the
+  exec-config carve = a full from-source LLVM build, too costly per CI run - the
   shard data path itself is covered by `shard_test`). **M5 (the full Layer C data
   path: aspect + shard + aggregate) is complete.**
 - `carve shard --scan` flag (default `true`): standalone `shard` scans headers as
@@ -272,7 +272,7 @@ follows [SemVer](https://semver.org/).
   `.bazelrc` and does not propagate to consumers, so `//carve:carve` may not build
   for a bzlmod consumer until that moves into the BUILD graph.
 - `carve/sidecar`: `BuildHeaderIndex` builds the deterministic header ->
-  owning-action index (owners sorted, lex-min canonical) from action records —
+  owning-action index (owners sorted, lex-min canonical) from action records -
   the basis for header-driven incremental invalidation (M1; CARVE_DESIGN §4.5).
   sidecar tests now build proto data from `ParseTextProtoOrDie`/`EqualsProto`
   text literals instead of imperative setters.
@@ -302,14 +302,14 @@ follows [SemVer](https://semver.org/).
 - Cross-host determinism (CARVE_DESIGN.md §9): scan-deps resolves generated and
   external headers to absolute, per-host Bazel cache paths
   (`.../execroot/_main/...`). `command::RelativizeToExecroot` now stores them
-  execroot-relative — as the sources and argv already are — so the persisted
+  execroot-relative - as the sources and argv already are - so the persisted
   sidecar and header index hold **zero** absolute paths (verified end-to-end on
   this repo: ~15k → 0) and are byte-identical across machines and
   remote-cache-shareable. The CDB `file` is likewise emitted execroot-relative
   (clangd resolves it against `directory`=execroot, the same path as before). A
   `refresh_test` property test asserts the sidecar carries no absolute paths.
-  (IMPLEMENTATION_PLAN.md M2; the full CDB workspace-relative rewrite —
-  `directory`=workspace + `//external` symlink — remains a deferred follow-up.)
+  (IMPLEMENTATION_PLAN.md M2; the full CDB workspace-relative rewrite -
+  `directory`=workspace + `//external` symlink - remains a deferred follow-up.)
 - Layer C header recording (M5, opt-in): a `record_headers` parameter on
   `carve_aspect_refresh` (default off, so shards stay build-free). When set, each
   shard consumes its compile action's own `.d` dependency file and `carve_shard`
@@ -359,3 +359,8 @@ follows [SemVer](https://semver.org/).
   a read-only string parameter is `std::string_view` by value (not
   `const std::string&`); and match size/emptiness on the container with
   `SizeIs` / `IsEmpty`, never `.size()` / `.empty()` fed to a scalar matcher.
+- Enforce the no-em-dashes house rule repo-wide: replace all 117 U+2014 em-dashes
+  with spaced hyphens across 19 tracked files (docs, comments, and one Starlark
+  docstring - no strings a test pins), and add a `no-em-dashes` pygrep pre-commit
+  hook (excluding this config, whose `entry` carries the character) so the rule is
+  enforced going forward.

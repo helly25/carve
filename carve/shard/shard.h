@@ -59,7 +59,7 @@ struct Options {
 
 // Builds a single-record shard from one compile action: de-Bazel the command,
 // resolve Apple `wrapped_clang` placeholders, scan headers (a failed scan records
-// none and leaves the row unstamped, so a later run re-scans it — cache only a
+// none and leaves the row unstamped, so a later run re-scans it - cache only a
 // complete scan), and stamp `written_at` when the scan is complete (or when no
 // scanner is configured). The record shape matches what `refresh` produces, so
 // shards and refreshed sidecars merge cleanly in `aggregate`.

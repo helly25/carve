@@ -54,7 +54,7 @@ bazel_dep(name = "helly25_proto", version = "1.2.1", dev_dependency = True)
 #   - the @llvm-project Bazel overlay, from which //carve/scan_deps links the
 #     clang dependency-scanning library (@llvm-project//clang:tooling).
 # The overlay is compiled with this toolchain, so the dependency-scanning libs
-# and our own code share ONE libc++ — no shared-library ABI boundary and no
+# and our own code share ONE libc++ - no shared-library ABI boundary and no
 # libstdc++-on-Linux coupling (the defect of wrapping upstream prebuilt LLVM).
 # Our code is C++23; LLVM's own sources are a C++17 codebase and compile at C++17
 # (see the scoped per_file_copt in .bazelrc) while linking the same libc++.

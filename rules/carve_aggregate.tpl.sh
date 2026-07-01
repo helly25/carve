@@ -8,7 +8,7 @@
 #
 # Layer C split: the shards are produced by the outer build (one cacheable action
 # per compile action, so an edit re-shards only what changed); this run step just
-# aggregates them — it does NOT re-run aquery.
+# aggregates them - it does NOT re-run aquery.
 set -euo pipefail
 
 # --- runfiles.bash initialization (bazelbuild/bazel tools/bash/runfiles) ---

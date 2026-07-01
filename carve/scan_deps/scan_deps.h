@@ -28,7 +28,7 @@ namespace carve::scan_deps {
 // Scans the dependencies of a single compile command using clang's in-process
 // `DependencyScanningTool`. `args` is the full driver command line (compiler +
 // flags + source); `working_dir` resolves the command's relative paths. Returns
-// the dependency paths the scanner reports — the translation unit's source plus
+// the dependency paths the scanner reports - the translation unit's source plus
 // the headers it includes. Returns a non-OK status if scanning fails (e.g. a
 // missing header). The scan is performed entirely in-process (no subprocess).
 [[nodiscard]] absl::StatusOr<std::vector<std::string>> ScanDependencies(

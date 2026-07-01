@@ -28,7 +28,7 @@ Central Registry; the release tooling is in place. See
 
 A working CDB does not require a full build; clangd resolves most headers
 itself. Generated headers, however, must exist on disk for the scan to resolve
-them — codegen-heavy targets may need a build first. Sub-second incremental
+them - codegen-heavy targets may need a build first. Sub-second incremental
 refresh on large monorepos is a Layer C (aspect) property: Layers A/B re-run
 `bazel aquery` each time and so pay the graph-query cost regardless of edit
 size. See [CARVE_DESIGN.md](CARVE_DESIGN.md) section 3.1.
@@ -69,7 +69,7 @@ one individually-cacheable shard per compile action and aggregate them.
 
 - Bazel 9.1+
 - Clang 22.x (LLVM 22.1.7), pinned via the hermetic
-  [llvm](https://github.com/hermeticbuild/hermetic-llvm) toolchain — which also
+  [llvm](https://github.com/hermeticbuild/hermetic-llvm) toolchain - which also
   supplies the LLVM libraries `scan_deps` links, built from source
 - Apple Silicon / x86\_64 Linux supported; Windows planned
 

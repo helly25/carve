@@ -20,7 +20,7 @@ indirection), which is exactly what `carve_shard` de-Bazels into a database entr
 A shard's content is a function of the compile command alone, so each shard
 action's only input is its `command_file`. Bazel's action cache then re-runs an
 individual shard exactly when that translation unit's *command* changes (a new
-flag, define, or dependency) — the per-action incrementality Layers A/B cannot
+flag, define, or dependency) - the per-action incrementality Layers A/B cannot
 offer (CARVE_DESIGN.md sections 3.1, 4.7). Editing source/header *content* leaves
 the command, and therefore the database entry, unchanged, so no re-shard is
 needed (clangd re-reads the changed files itself). By default a shard records no
@@ -48,7 +48,7 @@ CarveShardsInfo = provider(
 )
 
 def _find_source(argv):
-    """Returns the compile source — the token after `-c` — or "" if none."""
+    """Returns the compile source - the token after `-c` - or "" if none."""
     for i in range(len(argv) - 1):
         if argv[i] == "-c":
             return argv[i + 1]

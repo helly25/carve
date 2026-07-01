@@ -170,14 +170,14 @@ bool ScanHeaders(ActionRecord& record, std::string_view directory, const HeaderS
 
 // Scans a fixed set of action records concurrently. Each worker repeatedly
 // claims the next unscanned record and scans it; `workers` threads run at once
-// (the scanner must be safe to call concurrently — see HeaderScanner).
+// (the scanner must be safe to call concurrently - see HeaderScanner).
 //
 // The single mutex `mu_` controls exactly two members: the claim cursor `next_`
 // and the failure list `failed_`. Everything else is immutable after
 // construction. A record's own contents are mutated WITHOUT the lock: that is
 // safe because `ClaimNext` hands each index to exactly one worker, so no two
 // workers ever touch the same record (and distinct repeated-field elements have
-// disjoint storage — the parent field is never resized here).
+// disjoint storage - the parent field is never resized here).
 class ParallelScan {
  public:
   ParallelScan(std::vector<ActionRecord*> records, std::string_view directory, const HeaderScanner& scanner)
@@ -263,7 +263,7 @@ bool ModifiedAfter(const std::filesystem::path& path, std::int64_t since) {
 // are both stored execroot-relative, resolved against `directory` to stat them.
 //
 // `written_at` has one-second granularity, so an edit made in the same second as
-// the previous refresh's stamp is not detected until the next edit or refresh —
+// the previous refresh's stamp is not detected until the next edit or refresh -
 // acceptable for a CDB cache, and clangd re-preprocesses regardless.
 bool CachedScanIsStale(const ActionRecord& stored, std::string_view directory) {
   if (stored.written_at() == 0) {
@@ -389,7 +389,7 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
   // Decide serially which actions need a (re)scan: added/changed actions, plus
   // unchanged actions whose cached headers (or source) were edited on disk since
   // the scan was recorded. Truly unchanged actions reuse the stored record's
-  // cached headers via MergeRecords below — the incremental-refresh win.
+  // cached headers via MergeRecords below - the incremental-refresh win.
   std::vector<ActionRecord*> to_scan;
   if (options.scanner) {
     for (ActionRecord& record : *current.mutable_records()) {
@@ -416,8 +416,8 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
 
   ActionRecords merged = sidecar::MergeRecords(stored, current, options.project_id, rescanned);
 
-  // Stamp written_at on the rows this refresh owns — added, changed, and reused
-  // alike — so prune can GC projects that have stopped refreshing. Other
+  // Stamp written_at on the rows this refresh owns - added, changed, and reused
+  // alike - so prune can GC projects that have stopped refreshing. Other
   // projects' rows keep their own timestamps. An action whose scan did not fully
   // resolve is left UNstamped (written_at stays unset, which reads as 0 = stale)
   // so the next refresh re-scans it rather than caching an incomplete header set
@@ -435,7 +435,7 @@ absl::StatusOr<RefreshStats> RunRefresh(const FileOptions& options) {
 
   // Persist the header -> owning-action index alongside the entries sidecar
   // (the design's second cache file). It is a deterministic projection of the
-  // merged records, so it is rebuilt from scratch each refresh — the reverse
+  // merged records, so it is rebuilt from scratch each refresh - the reverse
   // lookup that maps an edited header to the action(s) to re-scan. See
   // CARVE_DESIGN.md sections 4.4-4.5.
   const std::filesystem::path index_path =

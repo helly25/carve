@@ -62,8 +62,8 @@ struct KeyDiff {
 // Merges freshly-built `current` records (all belonging to `project_id`) into
 // `stored`, the basis of the shared cross-project CDB. Records of OTHER projects
 // are preserved untouched. Within `project_id`: a stored record whose key AND
-// command match a current record is kept — preserving cached fields (e.g.
-// scan-deps-resolved headers) the current record does not yet carry — UNLESS the
+// command match a current record is kept - preserving cached fields (e.g.
+// scan-deps-resolved headers) the current record does not yet carry - UNLESS the
 // current record's `action_key` is in `rescanned`, in which case the current
 // record is authoritative (it was just re-scanned, e.g. because a cached header
 // changed on disk) and is used as-is. Otherwise (a new key or a changed command)
@@ -76,9 +76,9 @@ struct KeyDiff {
     const absl::flat_hash_set<std::string_view>& rescanned);
 
 // Returns the stored record in `project_id` whose `action_key` AND command match
-// `candidate` — the record `MergeRecords` would reuse, letting a caller read its
+// `candidate` - the record `MergeRecords` would reuse, letting a caller read its
 // cached fields (resolved headers, `written_at`) to decide whether they are
-// still valid — or nullptr if no such record exists (a new or changed action).
+// still valid - or nullptr if no such record exists (a new or changed action).
 // The pointer is valid for the lifetime of `stored`.
 [[nodiscard]] const ActionRecord* FindReusableRecord(
     const ActionRecords& stored,

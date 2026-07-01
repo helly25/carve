@@ -70,7 +70,7 @@ naming, `deps` vs `implementation_deps`) live in [RULES.md](RULES.md). Summary:
 
 ## Testing discipline
 
-Write relevant tests at **all** levels — unit, golden (per de-Bazeling quirk),
+Write relevant tests at **all** levels - unit, golden (per de-Bazeling quirk),
 integration (synthetic workspaces under `testdata/`), and the differential
 harness against the existing tool. See [CARVE_DESIGN.md](CARVE_DESIGN.md)
 section 9 for the layout.
@@ -80,7 +80,7 @@ script, a manual diff) as a substitute for tests, and do not run such a check
 and then move on. For any change, make a deliberate choice up front:
 
 1. **Write the real test(s) outright** when the behavior is specifiable now, or
-2. **Use the one-shot experiment as planning input** — capture what it told you
+2. **Use the one-shot experiment as planning input** - capture what it told you
    (inputs, expected output, edge cases) and turn it into a committed test
    before the change is considered done.
 
@@ -89,7 +89,7 @@ a committed test at the appropriate level(s). One-shot exploration informs the
 test plan; it never replaces it.
 
 There is no exemption category. "It's just a refactor / a one-liner / hard to
-test" is not a reason to skip — it is a reason to pick the right level (a
+test" is not a reason to skip - it is a reason to pick the right level (a
 behavior-preserving change is covered by the tests that already pin that
 behavior; if none exist, that gap is part of the change). If a behavior
 genuinely cannot be tested, say so explicitly in the PR and explain why; do not
@@ -134,7 +134,7 @@ bazel test //... --config=asan     # sanitizer presets
 
 If you are an AI agent making changes:
 
-1. Read [CARVE_DESIGN.md](CARVE_DESIGN.md) and this file before writing code — and
+1. Read [CARVE_DESIGN.md](CARVE_DESIGN.md) and this file before writing code - and
    [RULES.md](RULES.md) plus [STYLE_CPP.md](STYLE_CPP.md) before writing or changing
    C++ (structure + the detailed style: matchers, `// NL`, idioms).
 2. State the change you intend to make in plain language before editing.
