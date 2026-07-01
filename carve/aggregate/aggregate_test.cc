@@ -152,5 +152,93 @@ TEST(RunAggregateTest, MissingSidecarContributesNothing) {
   EXPECT_THAT(ReadFile(out), Eq("[]\n"));
 }
 
+TEST(RunAggregateTest, WritesHeaderIndexFromShardHeaders) {
+  const std::filesystem::path dir = std::filesystem::path(::testing::TempDir()) / "carve_aggregate_header_index";
+  std::filesystem::remove_all(dir);
+  const std::filesystem::path shard_z = dir / "shard_z.binpb";
+  const std::filesystem::path shard_a = dir / "shard_a.binpb";
+  const std::filesystem::path out = dir / "compile_commands.json";
+
+  // Two record-headers shards. `shared.h` is included by both actions, so it is
+  // owned by both; `z.h` only by "z". Shards are saved in a non-sorted order to
+  // prove the index does not depend on input order.
+  ASSERT_THAT(
+      sidecar::Save(
+          shard_z, ParseTextProtoOrDie(
+                       R"pb(
+                         records {
+                           project_id: "p"
+                           action_key: "z"
+                           command: "clang"
+                           command: "-c"
+                           command: "carve/z.cc"
+                           sources: "carve/z.cc"
+                           headers: "carve/shared.h"
+                           headers: "carve/z.h"
+                           source_kind: ASPECT_M
+                         })pb")),
+      IsOk());
+  ASSERT_THAT(
+      sidecar::Save(
+          shard_a, ParseTextProtoOrDie(
+                       R"pb(
+                         records {
+                           project_id: "p"
+                           action_key: "a"
+                           command: "clang"
+                           command: "-c"
+                           command: "carve/a.cc"
+                           sources: "carve/a.cc"
+                           headers: "carve/shared.h"
+                           source_kind: ASPECT_M
+                         })pb")),
+      IsOk());
+
+  const std::vector<std::filesystem::path> shards = {shard_z, shard_a};
+  EXPECT_THAT(RunAggregate(shards, out, /*directory=*/"/exec/root"), IsOkAndHolds(Eq(2)));
+
+  // The index lands next to the database (same filename refresh uses). Owners are
+  // sorted by header_path; a header owned by several actions lists all of them
+  // with the lex-min ("a") first (the canonical owner).
+  const std::filesystem::path index_path = dir / "headers-index.binpb";
+  EXPECT_THAT(
+      sidecar::LoadHeaderIndex(index_path),
+      IsOkAndHolds(EqualsProto(  // NL
+          R"pb(
+            owners { header_path: "carve/shared.h" action_keys: "a" action_keys: "z" }
+            owners { header_path: "carve/z.h" action_keys: "z" }
+            schema_version: 1)pb")));
+}
+
+TEST(RunAggregateTest, WritesEmptyHeaderIndexWhenShardsCarryNoHeaders) {
+  const std::filesystem::path dir = std::filesystem::path(::testing::TempDir()) / "carve_aggregate_no_headers";
+  std::filesystem::remove_all(dir);
+  const std::filesystem::path shard = dir / "shard.binpb";
+  const std::filesystem::path out = dir / "compile_commands.json";
+
+  // record_headers off: the shard carries a source but no headers.
+  ASSERT_THAT(
+      sidecar::Save(
+          shard, ParseTextProtoOrDie(
+                     R"pb(
+                       records {
+                         project_id: "p"
+                         action_key: "a"
+                         command: "clang"
+                         command: "-c"
+                         command: "carve/a.cc"
+                         sources: "carve/a.cc"
+                       })pb")),
+      IsOk());
+
+  const std::vector<std::filesystem::path> shards = {shard};
+  EXPECT_THAT(RunAggregate(shards, out, /*directory=*/"/exec/root"), IsOkAndHolds(Eq(1)));
+
+  // The index is written even with no headers - owners empty, schema stamped -
+  // matching refresh, so a consumer always finds a current index.
+  const std::filesystem::path index_path = dir / "headers-index.binpb";
+  EXPECT_THAT(sidecar::LoadHeaderIndex(index_path), IsOkAndHolds(EqualsProto(R"pb(schema_version: 1)pb")));
+}
+
 }  // namespace
 }  // namespace carve::aggregate

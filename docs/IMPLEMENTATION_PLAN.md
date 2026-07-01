@@ -157,8 +157,14 @@ action cache on `command_file`). **M5 complete.**
   building each TU (the `.d` is a compile byproduct). Validated end-to-end against
   an external consumer.
 
-Deferred Layer C refinements (follow-ups, not blockers): building a `HeaderIndex`
-from the recorded shard headers in `aggregate` (the shards now carry them).
+- ✅ **`aggregate` builds + persists a `HeaderIndex`:** after merging the shard
+  records, `aggregate` builds the header -> owning-`action_key` index from their
+  recorded `headers` (reusing the shared `sidecar::BuildHeaderIndex`, no logic
+  duplicated) and writes it to `headers-index.binpb` next to the output database -
+  the same filename and placement `refresh` uses beside its sidecar. A header owned
+  by several actions lists all owners (lex-min canonical owner first); the
+  empty-headers case (`record_headers` off) still writes the index, matching
+  refresh. This closes Layer C's header-index parity with `refresh`.
 
 ### M6 - 0.1 release + distribution
 `.bcr/` metadata, release automation, prebuilt binaries for common platforms (design §7); decide Windows in-or-out.

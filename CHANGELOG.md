@@ -364,3 +364,12 @@ follows [SemVer](https://semver.org/).
   docstring - no strings a test pins), and add a `no-em-dashes` pygrep pre-commit
   hook (excluding this config, whose `entry` carries the character) so the rule is
   enforced going forward.
+- `aggregate` now builds and persists a `HeaderIndex` from the merged shards'
+  recorded headers, completing Layer C header-index parity with `refresh`. It
+  reuses the shared `sidecar::BuildHeaderIndex` / `SaveHeaderIndex` (no logic
+  duplicated) and writes `headers-index.binpb` next to the output database - the
+  same filename and "next to the CDB" placement refresh uses beside its sidecar.
+  A header owned by several actions lists all owners with the lex-min canonical
+  owner first; the empty-headers case (`record_headers` off) still writes the
+  index (schema stamped, owners empty), matching refresh. Covered by three new
+  `aggregate_test` cases.
