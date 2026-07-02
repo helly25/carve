@@ -45,6 +45,14 @@ namespace carve::aggregate {
 // atomically writes the JSON database to `output_path`. Returns the number of
 // entries written.
 //
+// Also builds the header -> owning-action `HeaderIndex` from the combined
+// records' `headers` (via `sidecar::BuildHeaderIndex`, the same builder
+// `refresh` uses) and writes it to `headers-index.binpb` in `output_path`'s
+// directory, matching refresh's index filename and its "next to the CDB"
+// placement. When the merged shards carry no headers (`record_headers` off) the
+// index is empty apart from its schema version but is still written, as refresh
+// does. See CARVE_DESIGN.md sections 4.4-4.5.
+//
 // A missing sidecar contributes no records and is not an error (a shard that
 // produced nothing); a sidecar that exists but does not parse is an error.
 [[nodiscard]] absl::StatusOr<int> RunAggregate(

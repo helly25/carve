@@ -87,6 +87,17 @@ absl::StatusOr<int> RunAggregate(
   const ActionRecords combined = Combine(loaded);
   const std::vector<cdb::CompileCommand> entries = refresh::EntriesFromRecords(combined, directory);
   MBO_RETURN_IF_ERROR(cdb::Write(output_path, entries));
+
+  // Persist the header -> owning-action index next to the database, matching
+  // `refresh` (same builder, same `headers-index.binpb` filename). Where refresh
+  // places it beside its single sidecar, aggregate has no one sidecar but does
+  // have a single output database, so it uses the database's directory - the
+  // "single directory next to the CDB" the two cache files share (CARVE_DESIGN.md
+  // sections 4.4-4.5). When the merged shards carry no headers (record_headers
+  // off) the index is empty apart from its schema version; it is written anyway,
+  // as refresh does, so a consumer always finds a current index.
+  const std::filesystem::path index_path = output_path.parent_path() / "headers-index.binpb";
+  MBO_RETURN_IF_ERROR(sidecar::SaveHeaderIndex(index_path, sidecar::BuildHeaderIndex(combined)));
   return static_cast<int>(entries.size());
 }
 
