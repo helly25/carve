@@ -373,3 +373,9 @@ follows [SemVer](https://semver.org/).
   owner first; the empty-headers case (`record_headers` off) still writes the
   index (schema stamped, owners empty), matching refresh. Covered by three new
   `aggregate_test` cases.
+- Codify the refresh idempotency property (CARVE_DESIGN §9): a new `refresh_test`
+  case asserts that running `RunRefresh` twice over identical inputs (fixed clock,
+  deterministic scanner) yields a byte-identical sidecar. Refresh is byte-idempotent
+  even when the second run re-scans (the deterministic scanner and fixed `written_at`
+  stamp reproduce the same bytes); this completes the determinism property tests
+  alongside the existing no-absolute-paths cross-host-determinism check.
