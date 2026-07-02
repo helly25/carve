@@ -53,6 +53,7 @@ using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::Property;
 
 // Serializes `message` to `path` (creating parents), returning `path`.
@@ -72,6 +73,12 @@ std::filesystem::path WriteText(const std::filesystem::path& path, std::string_v
   std::ofstream file(path, std::ios::binary);
   file.write(text.data(), static_cast<std::streamsize>(text.size()));
   return path;
+}
+
+// Reads the raw bytes of `path`. Used to compare a written sidecar byte-for-byte.
+std::string ReadBytes(const std::filesystem::path& path) {
+  std::ifstream file(path, std::ios::binary);
+  return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 }
 
 analysis::Action* AddCompile(analysis::ActionGraphContainer& container, std::string_view key) {
@@ -554,6 +561,30 @@ TEST(RunRefreshTest, SidecarHoldsNoAbsolutePathsForCrossHostDeterminism) {
       EXPECT_FALSE(header.starts_with("/")) << "absolute header leaked into the sidecar: " << header;
     }
   }
+}
+
+TEST(RunRefreshTest, RefreshTwiceYieldsAByteIdenticalSidecar) {
+  // Idempotency (CARVE_DESIGN.md section 9): refreshing twice over identical
+  // inputs must yield a byte-identical sidecar the second time. This is a core
+  // determinism property and the basis for remote-cache-shareability. The clock
+  // is fixed so `written_at` is stable across both runs, and the scanner is
+  // deterministic (mimicking scan-deps by returning an execroot-absolute header,
+  // which is stored relative). Refresh #1 populates the sidecar; refresh #2, over
+  // the same inputs, must reproduce it exactly -- even though the on-disk files
+  // are newer than the stamp, so #2 re-scans rather than reusing the cache.
+  StalenessFixture fixture = MakeStalenessFixture("carve_idempotent", /*written_at=*/1);
+  fixture.options.now = [] { return std::int64_t{1'700'000'000}; };
+  const std::string absolute_header = (fixture.dir / "bazel-out" / "k8" / "bin" / "gen.h").string();
+  fixture.options.scanner = [&absolute_header](absl::Span<const std::string> /*argv*/, std::string_view /*directory*/)
+      -> absl::StatusOr<std::vector<std::string>> { return std::vector<std::string>{absolute_header}; };
+
+  ASSERT_THAT(RunRefresh(fixture.options), IsOk());
+  const std::string first = ReadBytes(fixture.options.sidecar_path);
+  ASSERT_THAT(RunRefresh(fixture.options), IsOk());
+  const std::string second = ReadBytes(fixture.options.sidecar_path);
+
+  ASSERT_THAT(first, Not(IsEmpty()));  // Guard the byte comparison against a vacuous empty-vs-empty pass.
+  EXPECT_THAT(second, Eq(first));
 }
 
 TEST(RunRefreshTest, FailedScanIsLeftUnstampedAndCounted) {

@@ -217,7 +217,7 @@ Acceptance: a bzlmod consumer can `bazel_dep(name = "helly25_carve")` and get a 
   per-action shard. ✅ `cc_carve_aspect` + `carve_aspect_refresh` (Layer C): the
   aspect schedules `shard` per compile action and aggregates the shards.
 - Parallel scan-deps (`--jobs`) - fold into M1.
-- Property tests: ✅ cross-host determinism - `refresh_test` asserts the sidecar holds no absolute paths after a refresh whose scanner returns execroot-absolute headers (M2 canonicalization). Idempotency (refresh twice → identical sidecar) still to be codified beyond the dogfood check.
+- Property tests: ✅ cross-host determinism - `refresh_test` asserts the sidecar holds no absolute paths after a refresh whose scanner returns execroot-absolute headers (M2 canonicalization). ✅ idempotency - `refresh_test` asserts that refreshing twice over identical inputs (fixed clock, deterministic scanner) yields a byte-identical sidecar.
 - Keep [docs/test-plan.md](test-plan.md) at zero open debts.
 - Latency reality: Layers A/B re-run `bazel aquery` every refresh (design §3.1); sub-second incrementality on huge repos is a Layer C (M5) property - don't over-promise before then.
 
